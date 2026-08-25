@@ -21,9 +21,10 @@
         android:fillColor="#FF000000"
         android:pathData="M 42,42 m -3.2,0 a 3.2,3.2 0 1,1 6.4,0 a 3.2,3.2 0 1,1 -6.4,0
                          M 62,42 m -3.2,0 a 3.2,3.2 0 1,1 6.4,0 a 3.2,3.2 0 1,1 -6.4,0" />
-    <!-- Smile — warm, slightly open -->
+    <!-- Smile — warm, slightly open. Stroke only: a fillColor here would also
+         fill the implicit closing edge of this open curve, thickening it into
+         an unwanted crescent instead of a clean line. -->
     <path
-        android:fillColor="#FF000000"
         android:strokeColor="#FF000000"
         android:strokeWidth="2.8"
         android:strokeLineCap="round"

@@ -1,9 +1,15 @@
 package com.hertzds.ui.chat
 
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -23,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -171,11 +178,17 @@ fun ComposerV2(
                             color = Color(0xFF25282E),
                             modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable { onModelClick() }
                         ) {
-                            Text(
-                                Models.label(currentModel),
-                                style = MaterialTheme.typography.labelMedium.copy(color = Color.White),
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            ) {
+                                Icon(painterResource(R.drawable.ic_model_spark), null, tint = Color.White, modifier = Modifier.size(12.dp))
+                                Text(
+                                    Models.label(currentModel),
+                                    style = MaterialTheme.typography.labelMedium.copy(color = Color.White),
+                                    modifier = Modifier.padding(start = 6.dp),
+                                )
+                            }
                         }
                     }
 
@@ -226,27 +239,40 @@ fun ComposerV2(
                                 }
                             }
                         } else {
-                            // Has text: Send or Stop
+                            // Has text: icon-only Send, morphs into Stop while generating
                             val running = !enabled
                             val bg by animateColorAsState(
                                 targetValue = if (running) Color(0xFFFF4D4D) else Color.White,
                                 label = "sendBg"
                             )
                             val fg = if (running) Color.White else Color.Black
+                            val interaction = remember { MutableInteractionSource() }
+                            val pressed by interaction.collectIsPressedAsState()
+                            val scale by animateFloatAsState(
+                                targetValue = if (pressed) 0.88f else 1f,
+                                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+                                label = "sendScale",
+                            )
                             Surface(
                                 shape = RoundedCornerShape(12.dp),
                                 color = bg,
-                                modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable {
-                                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    when {
-                                        running -> onStopSend()
-                                        draft.isNotBlank() -> { onSend(draft); draft = "" }
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .graphicsLayer { scaleX = scale; scaleY = scale }
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable(interactionSource = interaction, indication = null) {
+                                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        when {
+                                            running -> onStopSend()
+                                            draft.isNotBlank() -> { onSend(draft); draft = "" }
+                                        }
                                     }
-                                }
                             ) {
-                                Box(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), contentAlignment = Alignment.Center) {
-                                    if (running) Icon(Icons.Filled.Stop, "Stop", tint = fg, modifier = Modifier.size(18.dp))
-                                    else Text(str.send, style = MaterialTheme.typography.labelMedium.copy(color = fg))
+                                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                    Crossfade(targetState = running, label = "sendIcon") { isRunning ->
+                                        if (isRunning) Icon(Icons.Filled.Stop, str.stop, tint = fg, modifier = Modifier.size(18.dp))
+                                        else Icon(painterResource(R.drawable.ic_send), str.send, tint = fg, modifier = Modifier.size(17.dp))
+                                    }
                                 }
                             }
                         }
@@ -285,7 +311,12 @@ fun CallControls(
                     Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)).background(if (isMuted) Color.White else Color(0xFF2A2E36)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(painterResource(R.drawable.ic_custom_mic), str.mute, tint = if (isMuted) Color.Black else Color.White, modifier = Modifier.size(22.dp))
+                    Icon(
+                        painterResource(if (isMuted) R.drawable.ic_mic_muted else R.drawable.ic_custom_mic),
+                        if (isMuted) str.unmute else str.mute,
+                        tint = if (isMuted) Color.Black else Color.White,
+                        modifier = Modifier.size(22.dp),
+                    )
                 }
                 Text(if (isMuted) str.unmute else str.mute, style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF9AA0AE)), modifier = Modifier.padding(top = 6.dp))
             }
@@ -392,11 +423,17 @@ fun GhostChatDrawer(
                             .background(if (active) Color.White else Color.Transparent, RoundedCornerShape(2.dp)),
                     )
                     Column(Modifier.weight(1f).padding(horizontal = 12.dp, vertical = 9.dp)) {
-                        Text(
-                            (if (chat.pinned) "◆ " else "") + chat.title,
-                            style = if (active) MaterialTheme.typography.titleMedium.copy(color = Color.White) else MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF9AA0AE)),
-                            maxLines = 1, overflow = TextOverflow.Ellipsis,
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (chat.pinned) {
+                                Icon(painterResource(R.drawable.ic_pin), null, tint = Color.White, modifier = Modifier.size(11.dp))
+                                Spacer(Modifier.width(5.dp))
+                            }
+                            Text(
+                                chat.title,
+                                style = if (active) MaterialTheme.typography.titleMedium.copy(color = Color.White) else MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF9AA0AE)),
+                                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            )
+                        }
                         Text("${Models.label(chat.model)} · $%.4f".format(chat.totalCostUsd), style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6B7280)), modifier = Modifier.padding(top = 2.dp))
                     }
                     Icon(
