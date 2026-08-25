@@ -1,4 +1,5 @@
 import java.net.URL
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
@@ -27,6 +28,20 @@ fun ensureSherpaAar() {
 }
 ensureSherpaAar()
 
+/**
+ * Release signing: a persistent local keystore (git-ignored, generated once) so
+ * every release build carries the same signer identity instead of the debug key.
+ * Consistent signing is required for Play Store distribution and is the only
+ * developer-side lever on Android's "unknown developer" sideload warning — that
+ * warning itself only goes away once the app is verified through Play Protect,
+ * which requires Play Store distribution and cannot be achieved by build config.
+ */
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = Properties().apply {
+    if (keystorePropertiesFile.exists()) keystorePropertiesFile.inputStream().use { load(it) }
+}
+val hasReleaseSigning = keystorePropertiesFile.exists()
+
 android {
     namespace = "com.hertzds"
     compileSdk = 36
@@ -42,6 +57,17 @@ android {
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
     }
 
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = rootProject.file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
@@ -50,6 +76,7 @@ android {
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            if (hasReleaseSigning) signingConfig = signingConfigs.getByName("release")
         }
     }
 

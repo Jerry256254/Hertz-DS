@@ -71,8 +71,18 @@ class VoiceManager(
                 VoiceModel.PIPER_VOICES.firstOrNull { it.id == voiceId }
             }
             if (voice != null && ensureSherpaTts(voice)) {
-                speakWithSherpa(sentences, settings.ttsSpeed)
-                return
+                val sherpaOk = try {
+                    speakWithSherpa(sentences, settings.ttsSpeed)
+                    true
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    // Piper/AudioTrack can fail on specific OEM audio HALs (unsupported
+                    // PCM_FLOAT+rate combos, etc.) — fall back to the system engine
+                    // rather than let a hardware quirk crash the whole app.
+                    false
+                }
+                if (sherpaOk) return
             }
         }
         speakWithSystem(sentences, settings)
@@ -81,8 +91,8 @@ class VoiceManager(
     private suspend fun speakWithSherpa(sentences: List<String>, speed: Float) {
         val tts = sherpaTts ?: return
         val player = StreamingPcmPlayer(tts.sampleRate())
-        player.start()
         try {
+            player.start()
             for (sentence in sentences) {
                 tts.speak(sentence, speed) { chunk -> player.write(chunk) }
             }

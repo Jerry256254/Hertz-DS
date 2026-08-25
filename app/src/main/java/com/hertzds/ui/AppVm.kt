@@ -123,6 +123,9 @@ class AppVm(private val container: AppContainer) : ViewModel() {
     val readingMessageId: StateFlow<String?> = _readingMessageId.asStateFlow()
     private var readJob: Job? = null
 
+    /** Set by [newChat]; consumed by [runTurn] to force a brand-new row instead of reopening the last chat. */
+    private var pendingFreshChat = false
+
     private var turnJob: Job? = null
     private var handsFreeJob: Job? = null
     private var messagesJob: Job? = null
@@ -168,16 +171,23 @@ class AppVm(private val container: AppContainer) : ViewModel() {
         }
     }
 
+    /**
+     * "New chat" only clears the view — nothing is written to the database yet, so
+     * tapping it repeatedly never litters the drawer with empty conversations. The
+     * chat row is created lazily in [runTurn], the moment there is an actual first
+     * message to put in it.
+     */
     fun newChat() {
-        viewModelScope.launch {
-            val s = settings.value ?: return@launch
-            val chat = chats.createChat(
-                title = defaultChatTitle(),
-                model = s.defaultModel,
-                systemPrompt = null,
-            )
-            openChat(chat.id)
-        }
+        pendingFreshChat = true
+        turnJob?.cancel()
+        turnJob = null
+        voice.stopSpeaking()
+        messagesJob?.cancel()
+        messagesJob = null
+        _currentChatId.value = null
+        _messages.value = emptyList()
+        _pendingAttachments.value = emptyList()
+        _turn.value = TurnState.Idle
     }
 
     fun toggleGhostMode(enabled: Boolean) {
@@ -338,8 +348,18 @@ class AppVm(private val container: AppContainer) : ViewModel() {
         val s = settings.value ?: return ""
         var chatId = _currentChatId.value
         if (chatId == null) {
-            openMostRecentChat()
-            chatId = _currentChatId.value ?: return ""
+            val chat = if (pendingFreshChat) {
+                chats.createChat(title = defaultChatTitle(), model = s.defaultModel, systemPrompt = null)
+            } else {
+                chats.chats.first().firstOrNull() ?: chats.ensureChat(
+                    model = s.defaultModel,
+                    systemPrompt = null,
+                    fallbackTitle = defaultChatTitle(),
+                )
+            }
+            pendingFreshChat = false
+            openChat(chat.id)
+            chatId = chat.id
         }
 
         val userMessage = chats.newMessage(chatId, MessageRole.USER, userText)
@@ -543,6 +563,10 @@ class AppVm(private val container: AppContainer) : ViewModel() {
             val s = settings.value ?: return@launch
             try {
                 voice.speak(text, s)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _snackbar.value = "TTS: ${e.message}"
             } finally {
                 if (_readingMessageId.value == messageId) _readingMessageId.value = null
             }
