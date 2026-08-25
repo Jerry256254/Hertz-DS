@@ -1,45 +1,47 @@
 package com.hertzds.ui.chat
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bolt
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
@@ -47,222 +49,324 @@ import androidx.compose.ui.unit.sp
 import com.hertzds.data.db.MessageEntity
 import com.hertzds.data.repo.MessageRole
 import com.hertzds.data.repo.MessageStatus
+import com.hertzds.ui.theme.hertzSemantic
 
-/**
- * Renders one stored message. Tool traffic is compressed into chips; assistant
- * answers get a lightweight markdown treatment (bold, italics, code, fences).
- */
-@OptIn(ExperimentalFoundationApi::class)
+// ─────────────────────────────────────────────────────────────────────────────
+// Message language:
+//   user      → compact capsule on the right, signal veil fill + hairline
+//   assistant → open typography on canvas (no box), glyph header, data footer
+//   tool      → timeline rail: hairline spine, node dot, monospace caption
+// ─────────────────────────────────────────────────────────────────────────────
+
 @Composable
-fun MessageRow(
-    message: MessageEntity,
-    modifier: Modifier = Modifier,
-) {
-    val clipboard = LocalClipboardManager.current
-    val isUser = message.role == MessageRole.USER
-
+fun MessageRow(message: MessageEntity, modifier: Modifier = Modifier) {
     when (message.role) {
-        MessageRole.TOOL -> {
-            val ok = message.status != MessageStatus.ERROR
-            Surface(
-                modifier = modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(10.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
-            ) {
-                Row(
-                    Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(
-                        Icons.Filled.Bolt,
-                        contentDescription = null,
-                        tint = if (ok) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
-                        modifier = Modifier.size(14.dp),
-                    )
+        MessageRole.TOOL -> ToolRailEntry(message, modifier)
+        MessageRole.USER -> UserBubble(message, modifier)
+        else -> AssistantBlock(message, modifier)
+    }
+}
+
+// ---- user --------------------------------------------------------------------
+
+@Composable
+private fun UserBubble(message: MessageEntity, modifier: Modifier) {
+    val sem = hertzSemantic()
+    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+        Surface(
+            shape = RoundedCornerShape(20.dp, 20.dp, 6.dp, 20.dp),
+            color = MaterialTheme.colorScheme.primaryContainer,
+            modifier = Modifier
+                .widthIn(max = 300.dp)
+                .border(1.dp, sem.signalVeil, RoundedCornerShape(20.dp, 20.dp, 6.dp, 20.dp)),
+        ) {
+            Column(Modifier.padding(horizontal = 16.dp, vertical = 11.dp)) {
+                if (message.content.isNotBlank()) {
                     Text(
-                        text = message.toolName ?: "tool",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(start = 6.dp),
-                    )
-                    Text(
-                        text = if (ok) "· ok" else "· ${message.error?.take(60)}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (ok) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(start = 4.dp),
+                        message.content,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onBackground,
                     )
                 }
-            }
-            if (message.status == MessageStatus.PENDING || message.status == MessageStatus.STREAMING) {
-                Text(
-                    "běží…",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = modifier.padding(start = 12.dp, top = 2.dp),
-                )
-            } else if (!ok && message.error.isNullOrBlank() && message.content.isNotBlank()) {
-                Text(
-                    message.content.take(160),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = modifier.padding(horizontal = 12.dp, vertical = 2.dp),
-                )
-            }
-        }
-
-        else -> Row(
-            modifier = modifier.fillMaxWidth(),
-            horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,
-        ) {
-            Surface(
-                shape = RoundedCornerShape(
-                    topStart = 18.dp, topEnd = 18.dp,
-                    bottomStart = if (isUser) 18.dp else 4.dp,
-                    bottomEnd = if (isUser) 4.dp else 18.dp,
-                ),
-                color = if (isUser) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
-                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.75f),
-                modifier = Modifier
-                    .widthIn(max = 340.dp)
-                    .combinedClickable(
-                        onClick = {},
-                        onLongClick = { clipboard.setText(AnnotatedString(message.content)) },
-                    ),
-            ) {
-                Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
-                    if (!isUser && !message.reasoning.isNullOrBlank()) {
-                        ReasoningBlock(message.reasoning)
-                        Spacer(Modifier.size(6.dp))
-                    }
-
-                    if (message.content.isNotBlank()) {
-                        MarkdownText(
-                            markdown = message.content,
-                            streaming = message.status == MessageStatus.STREAMING,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                    }
-
-                    if (message.status == MessageStatus.STREAMING && message.content.isBlank()) {
-                        TypingDots()
-                    }
-
-                    val footer = buildString {
-                        if (message.model != null) append(message.model)
-                        if (message.completionTokens > 0) {
-                            append("  ·  ")
-                            append(message.promptTokens + message.completionTokens)
-                            append(" tok")
-                        }
-                        if (message.costUsd > 0.0) {
-                            append("  ·  $")
-                            append("%.5f".format(message.costUsd))
-                            if (message.peakPricing) append(" ⚡peak")
-                        }
-                    }
-                    if (footer.isNotBlank()) {
-                        Text(
-                            footer,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                            modifier = Modifier.padding(top = 4.dp),
-                        )
-                    }
-
-                    when (message.status) {
-                        MessageStatus.ERROR -> StatusLine("chyba: ${message.error ?: "neznámá"}", MaterialTheme.colorScheme.error)
-                        MessageStatus.CANCELLED -> StatusLine("přerušeno", MaterialTheme.colorScheme.onSurfaceVariant)
-                        else -> Unit
-                    }
+                if (message.status == MessageStatus.ERROR) {
+                    Text(
+                        "odeslání selhalo",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
                 }
             }
         }
     }
 }
 
+// ---- assistant -----------------------------------------------------------------
+
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun StatusLine(text: String, color: androidx.compose.ui.graphics.Color) {
-    Text(text, style = MaterialTheme.typography.labelSmall, color = color, modifier = Modifier.padding(top = 2.dp))
+private fun AssistantBlock(message: MessageEntity, modifier: Modifier) {
+    val clipboard = LocalClipboardManager.current
+    val streaming = message.status == MessageStatus.STREAMING
+
+    Column(
+        modifier
+            .fillMaxWidth()
+            .animateContentSize()
+            .combinedClickable(
+                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                indication = null,
+                onClick = {},
+                onLongClick = {
+                    if (message.content.isNotBlank()) clipboard.setText(AnnotatedString(message.content))
+                },
+            ),
+    ) {
+        // header: glyph + identity
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            SignalGlyph(streaming)
+            Text(
+                "HERTZ",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(start = 7.dp),
+            )
+            message.model?.let {
+                Text(
+                    "· ${modelShort(it)}",
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.padding(start = 5.dp),
+                )
+            }
+        }
+
+        if (!message.reasoning.isNullOrBlank()) {
+            ReasoningDisclosure(message.reasoning, Modifier.padding(top = 8.dp))
+        }
+
+        if (message.content.isNotBlank()) {
+            MarkdownText(
+                markdown = message.content,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+        } else if (streaming) {
+            ThinkingLine(Modifier.padding(top = 10.dp))
+        }
+
+        val meta = buildString {
+            if (message.completionTokens > 0) append("${message.promptTokens + message.completionTokens} tok")
+            if (message.costUsd > 0.0) {
+                if (isNotEmpty()) append("  ·  ")
+                append("$%.5f".format(message.costUsd))
+                if (message.peakPricing) append(" peak")
+            }
+            when (message.status) {
+                MessageStatus.ERROR -> append(if (isEmpty()) "chyba" else "  ·  chyba")
+                MessageStatus.CANCELLED -> append(if (isEmpty()) "přerušeno" else "  ·  přerušeno")
+                else -> Unit
+            }
+        }
+        if (meta.isNotBlank()) {
+            Text(
+                meta,
+                style = MaterialTheme.typography.labelSmall,
+                color = hertzSemantic().faintText,
+                modifier = Modifier.padding(top = 7.dp),
+            )
+        }
+    }
+}
+
+private fun modelShort(model: String): String = when {
+    model.contains("pro") -> "pro"
+    model.contains("vision") -> "vision"
+    else -> "flash"
+}
+
+/** Small waveform mark used as assistant identity. */
+@Composable
+fun SignalGlyph(pulsing: Boolean, size: Int = 12) {
+    val transition = rememberInfiniteTransition(label = "glyph")
+    val alpha by transition.animateFloat(
+        initialValue = if (pulsing) 0.45f else 0.95f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(900), RepeatMode.Reverse),
+        label = "alpha",
+    )
+    Box(
+        Modifier
+            .size(size.dp)
+            .alpha(alpha)
+            .background(MaterialTheme.colorScheme.primary, CircleShape),
+    )
 }
 
 @Composable
-private fun ReasoningBlock(reasoning: String) {
-    var expanded by rememberSaveable { mutableStateOf(false) }
-    Surface(
-        color = MaterialTheme.colorScheme.background.copy(alpha = 0.6f),
-        shape = RoundedCornerShape(8.dp),
-        onClick = { expanded = !expanded },
-    ) {
-        Column(Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-                    null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(14.dp),
-                )
+private fun ThinkingLine(modifier: Modifier = Modifier) {
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+        ThinkingDots()
+    }
+}
+
+@Composable
+fun ThinkingDots() {
+    val transition = rememberInfiniteTransition(label = "dots")
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        repeat(3) { index ->
+            val alpha by transition.animateFloat(
+                initialValue = 0.2f,
+                targetValue = 1f,
+                animationSpec = infiniteRepeatable(
+                    tween(600, delayMillis = index * 160),
+                    RepeatMode.Reverse,
+                ),
+                label = "dot$index",
+            )
+            Box(
+                Modifier
+                    .size(5.dp)
+                    .alpha(alpha)
+                    .background(MaterialTheme.colorScheme.onSurfaceVariant, CircleShape),
+            )
+        }
+    }
+}
+
+// ---- tool timeline ---------------------------------------------------------------
+
+@Composable
+private fun ToolRailEntry(message: MessageEntity, modifier: Modifier) {
+    val sem = hertzSemantic()
+    val running = message.status == MessageStatus.PENDING || message.status == MessageStatus.STREAMING
+    val failed = message.status == MessageStatus.ERROR
+
+    Row(modifier.fillMaxWidth().padding(vertical = 3.dp)) {
+        // rail: spine above + node + spine below
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(18.dp)) {
+            Box(
+                Modifier
+                    .width(1.dp)
+                    .height(9.dp)
+                    .background(sem.hairline),
+            )
+            Box(
+                Modifier
+                    .size(7.dp)
+                    .background(
+                        when {
+                            running -> MaterialTheme.colorScheme.primary
+                            failed -> MaterialTheme.colorScheme.error
+                            else -> sem.positive
+                        },
+                        CircleShape,
+                    ),
+            )
+            Box(
+                Modifier
+                    .width(1.dp)
+                    .height(9.dp)
+                    .background(sem.hairline),
+            )
+        }
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .padding(start = 8.dp)
+                .weight(1f),
+        ) {
+            Text(
+                message.toolName ?: "tool",
+                style = MaterialTheme.typography.labelMedium,
+                color = if (failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (!message.error.isNullOrBlank()) {
                 Text(
-                    "úvahy",
-                    style = MaterialTheme.typography.labelSmall,
-                    fontStyle = FontStyle.Italic,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    "  ${message.error.take(64)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error.copy(alpha = 0.85f),
+                    maxLines = 2,
                 )
             }
-            if (expanded) {
+        }
+    }
+}
+
+// ---- reasoning -------------------------------------------------------------------
+
+@Composable
+private fun ReasoningDisclosure(reasoning: String, modifier: Modifier = Modifier) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    val sem = hertzSemantic()
+    Column(modifier.animateContentSize()) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .clickable { expanded = !expanded }
+                .padding(vertical = 2.dp),
+        ) {
+            Box(
+                Modifier
+                    .size(4.dp)
+                    .background(sem.faintText, CircleShape),
+            )
+            Text(
+                "uvnitř hlavy",
+                style = MaterialTheme.typography.labelSmall,
+                fontStyle = FontStyle.Italic,
+                modifier = Modifier.padding(start = 7.dp),
+            )
+        }
+        if (expanded) {
+            Box(
+                Modifier
+                    .padding(start = 1.dp, top = 4.dp)
+                    .border(1.dp, sem.hairline, RoundedCornerShape(10.dp))
+                    .padding(horizontal = 12.dp, vertical = 9.dp),
+            ) {
                 Text(
                     reasoning,
                     style = MaterialTheme.typography.bodySmall,
                     fontStyle = FontStyle.Italic,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp),
                 )
             }
         }
     }
 }
 
-/** Streaming caret shown while tokens arrive. */
-@Composable
-fun TypingDots() {
-    Text("▍", color = MaterialTheme.colorScheme.primary, fontSize = 16.sp)
-}
-
-// ---- minimal markdown ---------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
+// Lightweight markdown: fences, bold, italics, inline code
+// ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
-fun MarkdownText(markdown: String, streaming: Boolean, color: androidx.compose.ui.graphics.Color) {
-    val codeBackground = MaterialTheme.colorScheme.background
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        val segments = splitFences(markdown)
-        segments.forEachIndexed { index, segment ->
+fun MarkdownText(markdown: String, color: Color, modifier: Modifier = Modifier) {
+    val sem = hertzSemantic()
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(9.dp)) {
+        splitFences(markdown).forEach { segment ->
             if (segment.isCode) {
                 Text(
                     segment.text.trimEnd('\n'),
                     fontFamily = FontFamily.Monospace,
                     fontSize = 13.sp,
-                    lineHeight = 18.sp,
+                    lineHeight = 19.sp,
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(codeBackground.copy(alpha = 0.85f))
-                        .padding(10.dp),
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                        .border(1.dp, sem.hairline, RoundedCornerShape(12.dp))
+                        .padding(horizontal = 14.dp, vertical = 11.dp),
                 )
-            } else {
+            } else if (segment.text.isNotBlank()) {
                 Text(
-                    inlineMd(segment.text),
-                    fontSize = 16.sp,
+                    inlineMd(segment.text.trim()),
+                    fontSize = 15.5.sp,
                     lineHeight = 23.sp,
                     color = color,
-                    modifier = if (index == segments.lastIndex && streaming) {
-                        Modifier
-                    } else {
-                        Modifier
-                    },
                 )
             }
         }
-        if (streaming) TypingDots()
     }
 }
 
@@ -291,12 +395,11 @@ private fun splitFences(text: String): List<Segment> {
     return segments
 }
 
-/** **bold**, *italic*, `code` — enough markdown for chat answers. */
 private fun inlineMd(text: String): AnnotatedString = buildAnnotatedString {
     var i = 0
     val bold = SpanStyle(fontWeight = FontWeight.SemiBold)
     val italic = SpanStyle(fontStyle = FontStyle.Italic)
-    val code = SpanStyle(fontFamily = FontFamily.Monospace, fontSize = 14.sp)
+    val code = SpanStyle(fontFamily = FontFamily.Monospace, fontSize = 13.sp)
     while (i < text.length) {
         when {
             text.startsWith("**", i) -> {

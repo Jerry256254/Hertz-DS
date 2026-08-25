@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Themed-icon (monochrome) variant of the Hertz waveform -->
+    <path android:fillColor="#FFFFFFFF" android:pathData="
+        M25,47.5 A3.5,3.5 0 0 1 28.5,44 H29 A3.5,3.5 0 0 1 32.5,47.5 V60.5 A3.5,3.5 0 0 1 29,64 H28.5 A3.5,3.5 0 0 1 25,60.5 Z
+        M37.75,38.5 A3.5,3.5 0 0 1 41.25,35 H41.75 A3.5,3.5 0 0 1 45.25,38.5 V69.5 A3.5,3.5 0 0 1 41.75,73 H41.25 A3.5,3.5 0 0 1 37.75,69.5 Z
+        M50.5,29.5 A3.5,3.5 0 0 1 54,26 H54.5 A3.5,3.5 0 0 1 58,29.5 V78.5 A3.5,3.5 0 0 1 54.5,82 H54 A3.5,3.5 0 0 1 50.5,78.5 Z
+        M63.25,42.5 A3.5,3.5 0 0 1 66.75,39 H67.25 A3.5,3.5 0 0 1 70.75,42.5 V65.5 A3.5,3.5 0 0 1 67.25,69 H66.75 A3.5,3.5 0 0 1 63.25,65.5 Z
+        M76,49.5 A3.5,3.5 0 0 1 79.5,46 H80 A3.5,3.5 0 0 1 83.5,49.5 V58.5 A3.5,3.5 0 0 1 80,62 H79.5 A3.5,3.5 0 0 1 76,58.5 Z" />
+</vector>
