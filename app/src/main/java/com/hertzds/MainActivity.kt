@@ -112,22 +112,24 @@ private fun viewModelFactory(container: AppContainer): androidx.lifecycle.ViewMo
 private fun EulaGate(onAccept: () -> Unit, onDecline: () -> Unit) {
     AlertDialog(
         onDismissRequest = {},
-        title = { Text("Vítej v Hertz-DS", textAlign = TextAlign.Center) },
+        containerColor = androidx.compose.ui.graphics.Color(0xFF111214),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+        title = { Text("Welcome to Hertz-DS", textAlign = TextAlign.Center, color = androidx.compose.ui.graphics.Color.White) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 Text(
-                    "Lokální agentní asistent napojený na DeepSeek.\n\n" +
-                        "• Veškerá data (chaty, paměť, soubory, klíče) zůstávají pouze v tomto zařízení.\n" +
-                        "• Žádný účet, žádná telemetrie, žádný cloud.\n" +
-                        "• Dotazy se odesílají přímo na api.deepseek.com pod tvým vlastním API klíčem " +
-                        "a platí se z tvých kreditů.\n" +
-                        "• Nástroje agenta mohou přistupovat k internetu a pracovní složce aplikace.\n\n" +
-                        "Používáním souhlasíš s tímto modelem zpracování.",
-                    style = MaterialTheme.typography.bodySmall,
+                    "Local agentic assistant powered by DeepSeek.\n\n" +
+                        "• All data (chats, memory, files, keys) stays on this device only.\n" +
+                        "• No account, no telemetry, no cloud.\n" +
+                        "• Requests go directly to api.deepseek.com under your own API key\n" +
+                        "  and are billed from your credits.\n" +
+                        "• Agent tools may access the internet and the app's workspace folder.\n\n" +
+                        "By continuing you agree to this processing model.",
+                    style = MaterialTheme.typography.bodySmall.copy(color = androidx.compose.ui.graphics.Color(0xFF9AA0AE)),
                 )
             }
         },
-        confirmButton = { TextButton(onClick = onAccept) { Text("Souhlasím") } },
-        dismissButton = { TextButton(onClick = onDecline) { Text("Ukončit") } },
+        confirmButton = { TextButton(onClick = onAccept) { Text("Agree", color = androidx.compose.ui.graphics.Color.White) } },
+        dismissButton = { TextButton(onClick = onDecline) { Text("Exit", color = androidx.compose.ui.graphics.Color(0xFF9AA0AE)) } },
     )
 }

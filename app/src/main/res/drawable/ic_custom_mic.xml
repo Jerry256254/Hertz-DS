@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Modern mic — stem + waveform arcs, not Android default -->
+    <!-- mic body -->
+    <path android:fillColor="#FFFFFFFF"
+          android:pathData="M12,14a3,3 0 0 0 3,-3 V7a3,3 0 0 0 -6,0 v4a3,3 0 0 0 3,3z"/>
+    <!-- stem + base -->
+    <path android:fillColor="#FFFFFFFF"
+          android:pathData="M11,17.7 V19 H9 a1,1 0 0 0 0,2 h6 a1,1 0 0 0 0,-2 H13 V17.7 A6,6 0 0 1 18,12 h-2 A4,4 0 0 0 12,16 A4,4 0 0 0 8,12 H6 A6,6 0 0 1 11,17.7z"/>
+    <!-- subtle side waves (low alpha by being thinner) -->
+    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="1.2"
+          android:strokeLineCap="round"
+          android:pathData="M17,9.5 A5,5 0 0 1 17,14.5 M19,7.5 A7.5,7.5 0 0 1 19,16.5"/>
+    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="1.2"
+          android:strokeLineCap="round"
+          android:pathData="M7,9.5 A5,5 0 0 0 7,14.5 M5,7.5 A7.5,7.5 0 0 0 5,16.5"/>
+</vector>

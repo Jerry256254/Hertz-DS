@@ -4,75 +4,41 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
+import androidx.compose.ui.draw.alpha
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.MoreHoriz
-import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material3.DrawerValue
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalDrawerSheet
-import androidx.compose.material3.ModalNavigationDrawer
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberDrawerState
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.hertzds.R
 import com.hertzds.deepseek.Models
 import com.hertzds.ui.AppVm
 import com.hertzds.ui.HandsFreeUi
 import com.hertzds.ui.TurnState
-import com.hertzds.ui.theme.hertzSemantic
 import kotlinx.coroutines.launch
 
 @Composable
@@ -85,8 +51,8 @@ fun ChatScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val haptics = LocalHapticFeedback.current
     val drawerState = rememberDrawerState(DrawerValue.Closed)
-    val sem = hertzSemantic()
 
     val chatList by vm.chatList.collectAsStateWithLifecycle()
     val currentChat by vm.currentChat.collectAsStateWithLifecycle()
@@ -96,16 +62,19 @@ fun ChatScreen(
     val handsFree by vm.handsFree.collectAsStateWithLifecycle()
     val remainingUsd by vm.remainingUsd.collectAsStateWithLifecycle()
     val snackbarMessage by vm.snackbar.collectAsStateWithLifecycle()
+    val ghostMode by vm.ghostMode.collectAsStateWithLifecycle()
+    val isDictating by vm.isDictating.collectAsStateWithLifecycle()
+    val dictationRms by vm.dictationRms.collectAsStateWithLifecycle()
+    val isInCall by vm.isInCall.collectAsStateWithLifecycle()
+    val callRms by vm.callRms.collectAsStateWithLifecycle()
+    val isCallUserSpeaking by vm.isCallUserSpeaking.collectAsStateWithLifecycle()
 
     val snackbarHost = remember { SnackbarHostState() }
     var showNewGhostDialog by rememberSaveable { mutableStateOf(false) }
     var showModelPicker by rememberSaveable { mutableStateOf(false) }
-    var renameTarget by rememberSaveable { mutableStateOf<String?>(null) }
 
-    // permissions & pickers -----------------------------------------------------
     val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) vm.setHandsFree(true)
-        else vm.showSnackbar("Mikrofon je potřeba pro hands-free režim.")
+        if (!granted) vm.showSnackbar("Microphone permission is required.")
     }
     val attachLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
@@ -115,14 +84,14 @@ fun ChatScreen(
                 )
             }
             vm.addAttachment(context, uri)
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
         }
     }
 
-    // snackbar ------------------------------------------------------------------
     LaunchedEffect(snackbarMessage) {
         val message = snackbarMessage ?: return@LaunchedEffect
         if (message.startsWith("LOW_CREDITS:")) {
-            snackbarHost.showSnackbar("Docházejí kredity: zbývá ${message.removePrefix("LOW_CREDITS:")}$ · dobijte klíč")
+            snackbarHost.showSnackbar("Low credits: ${message.removePrefix("LOW_CREDITS:")}$ remaining")
             vm.consumeSnackbar()
         } else {
             snackbarHost.showSnackbar(message)
@@ -130,7 +99,6 @@ fun ChatScreen(
         }
     }
 
-    // auto-scroll -----------------------------------------------------------------
     val listState = rememberLazyListState()
     LaunchedEffect(messages.size, messages.lastOrNull()?.content?.length) {
         if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
@@ -140,8 +108,9 @@ fun ChatScreen(
         drawerState = drawerState,
         drawerContent = {
             ModalDrawerSheet(
-                drawerContainerColor = MaterialTheme.colorScheme.surface,
-                windowInsets = androidx.compose.foundation.layout.WindowInsets(0),
+                drawerContainerColor = Color(0xFF0A0A0A),
+                drawerContentColor = Color(0xFFECEFF3),
+                windowInsets = WindowInsets(0, 0, 0, 0),
             ) {
                 GhostChatDrawer(
                     chats = chatList,
@@ -160,88 +129,163 @@ fun ChatScreen(
             }
         },
     ) {
-        Column(
+        Box(
             Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-                .statusBarsPadding(),
+                .background(Color(0xFF000000))
         ) {
-            TopBar(
-                chatTitle = currentChat?.title,
-                chatModel = currentChat?.model,
-                toolsEnabled = currentChat?.toolsEnabled != false,
-                remainingUsd = remainingUsd,
-                onMenu = { scope.launch { drawerState.open() } },
-                onModelClick = { showModelPicker = true },
-                onCreditClick = onOpenKeys,
-                onRename = { renameTarget = currentChat?.id },
-                onToggleTools = { currentChat?.let { vm.setChatTools(it.id, !it.toolsEnabled) } },
-                onPinChat = { currentChat?.let { vm.pinChat(it.id, !it.pinned) } },
-                onClearHistory = { currentChat?.let { vm.clearChatHistory(it.id) } },
-                onMemory = onOpenMemory,
-                onTasks = onOpenTasks,
-                onSettings = onOpenSettings,
-            )
-
-            HandsFreeStrip(handsFree, onStop = { vm.setHandsFree(false) })
-
-            Box(Modifier.weight(1f)) {
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 10.dp, bottom = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                ) {
-                    items(messages, key = { it.id }) { message -> MessageRow(message) }
-                    when (val t = turn) {
-                        is TurnState.Running -> item { ToolTicker(t) }
-                        else -> Unit
-                    }
-                }
-                if (messages.isEmpty() && turn is TurnState.Idle && handsFree == HandsFreeUi.Off) {
-                    EmptyHero(
-                        onSuggestion = { text -> vm.send(text) },
-                        modifier = Modifier.align(Alignment.Center).fillMaxWidth(),
+            // Fog overlays for call mode — bottom for user, top for assistant
+            if (isInCall) {
+                if (isCallUserSpeaking) {
+                    VoiceFog(
+                        amplitude = callRms,
+                        fromBottom = true,
+                        modifier = Modifier.align(Alignment.BottomCenter)
+                    )
+                } else if (turn is TurnState.Running) {
+                    VoiceFog(
+                        amplitude = callRms,
+                        fromBottom = false,
+                        modifier = Modifier.align(Alignment.TopCenter)
                     )
                 }
             }
 
-            // composer zone
             Column(
-                Modifier
-                    .imePadding()
-                    .navigationBarsPadding()
-                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                Modifier.fillMaxSize()
             ) {
-                Composer(
-                    enabled = turn is TurnState.Idle,
-                    pendingAttachments = pending,
-                    onAttach = {
-                        attachLauncher.launch(arrayOf("image/*", "text/*", "application/pdf", "application/json"))
+                // Floating islands — properly inset below status bar
+                FloatingIslands(
+                    hasChat = currentChat != null && messages.isNotEmpty(),
+                    ghostEnabled = ghostMode,
+                    onMenuClick = {
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        scope.launch { drawerState.open() }
                     },
-                    onRemoveAttachment = vm::removePendingAttachment,
-                    onSend = { text ->
-                        vm.stopSpeakingIfIdle()
-                        vm.send(text)
+                    onNewChat = {
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        vm.newChat()
                     },
-                    onStopSend = vm::stop,
-                    handsFreeActive = handsFree != HandsFreeUi.Off && handsFree !is HandsFreeUi.Failed,
-                    onToggleHandsFree = {
-                        val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
-                            PackageManager.PERMISSION_GRANTED
-                        val activeNow = handsFree != HandsFreeUi.Off && handsFree !is HandsFreeUi.Failed
-                        when {
-                            activeNow -> vm.setHandsFree(false)
-                            granted -> vm.setHandsFree(true)
-                            else -> micPermission.launch(Manifest.permission.RECORD_AUDIO)
-                        }
+                    onGhostToggle = { enabled ->
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        vm.toggleGhostMode(enabled)
                     },
+                    modifier = Modifier
+                        .statusBarsPadding()
+                        .padding(horizontal = 16.dp, vertical = 10.dp)
                 )
+
+                // Messages
+                Box(Modifier.weight(1f)) {
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                    ) {
+                        items(messages, key = { it.id }) { message ->
+                            // In call mode, don't show full markdown — just plain
+                            MessageRow(message, isCallMode = isInCall)
+                        }
+                        when (val t = turn) {
+                            is TurnState.Running -> item { ToolTicker(t) }
+                            else -> Unit
+                        }
+                    }
+                    if (messages.isEmpty() && turn is TurnState.Idle && !isInCall && !isDictating) {
+                        EmptyHero(
+                            onSuggestion = { text ->
+                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                vm.send(text)
+                            },
+                            modifier = Modifier.align(Alignment.Center).fillMaxWidth(),
+                        )
+                    }
+                }
+
+                // Composer or Call controls
+                if (isInCall) {
+                    CallControls(
+                        isMuted = false, // vm.callMuted.collectAsState not needed for stub
+                        isPaused = false,
+                        onMute = { vm.toggleCallMute(!it) },
+                        onPause = { vm.toggleCallPause(!it) },
+                        onEnd = {
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            vm.endCall()
+                        },
+                        modifier = Modifier
+                            .navigationBarsPadding()
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                    )
+                } else {
+                    Column(
+                        Modifier
+                            .navigationBarsPadding()
+                            .imePadding()
+                            .padding(horizontal = 16.dp)
+                            .padding(top = 8.dp, bottom = 4.dp)
+                    ) {
+                        ComposerV2(
+                            enabled = turn is TurnState.Idle,
+                            pendingAttachments = pending,
+                            currentModel = currentChat?.model ?: Models.FLASH,
+                            onAttach = {
+                                attachLauncher.launch(arrayOf("image/*", "text/*", "application/pdf", "application/json"))
+                            },
+                            onModelClick = { showModelPicker = true },
+                            onRemoveAttachment = vm::removePendingAttachment,
+                            onSend = { text ->
+                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                vm.stopSpeakingIfIdle()
+                                vm.send(text)
+                            },
+                            onStopSend = {
+                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                vm.stop()
+                            },
+                            isDictating = isDictating,
+                            dictationRms = dictationRms,
+                            onStartDictation = {
+                                val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+                                if (!granted) micPermission.launch(Manifest.permission.RECORD_AUDIO)
+                                else {
+                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    vm.startDictation()
+                                }
+                            },
+                            onStopDictation = { partial ->
+                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                val text = vm.stopDictation()
+                                // Insert into field is handled by ComposerV2 via callback
+                            },
+                            dictationPartial = vm.dictationPartial.collectAsStateWithLifecycle().value,
+                            onStartCall = {
+                                val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+                                if (!granted) micPermission.launch(Manifest.permission.RECORD_AUDIO)
+                                else {
+                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    vm.startCall()
+                                }
+                            },
+                        )
+                        Text(
+                            "Hertz-DS can make mistakes — just like people.",
+                            style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6B7280)),
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp)
+                        )
+                    }
+                }
             }
+
+            SnackbarHost(
+                hostState = snackbarHost,
+                modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 72.dp)
+            )
         }
     }
 
-    // dialogs -------------------------------------------------------------------
     if (showNewGhostDialog) {
         NewGhostDialog(
             models = Models.ALL,
@@ -261,175 +305,72 @@ fun ChatScreen(
             )
         }
     }
-    renameTarget?.let { chatId ->
-        RenameDialog(
-            initial = chatList.firstOrNull { it.id == chatId }?.title.orEmpty(),
-            onDismiss = { renameTarget = null },
-            onRename = { vm.renameChat(chatId, it); renameTarget = null },
-        )
-    }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Top bar — transparent instrument header
-// ─────────────────────────────────────────────────────────────────────────────
-
 @Composable
-private fun TopBar(
-    chatTitle: String?,
-    chatModel: String?,
-    toolsEnabled: Boolean,
-    remainingUsd: Double?,
-    onMenu: () -> Unit,
-    onModelClick: () -> Unit,
-    onCreditClick: () -> Unit,
-    onRename: () -> Unit,
-    onToggleTools: () -> Unit,
-    onPinChat: () -> Unit,
-    onClearHistory: () -> Unit,
-    onMemory: () -> Unit,
-    onTasks: () -> Unit,
-    onSettings: () -> Unit,
+private fun FloatingIslands(
+    hasChat: Boolean,
+    ghostEnabled: Boolean,
+    onMenuClick: () -> Unit,
+    onNewChat: () -> Unit,
+    onGhostToggle: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    val sem = hertzSemantic()
     Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
+        modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(
-            Icons.Filled.Menu, "Ghost chaty",
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier
-                .size(42.dp)
-                .clip(CircleShape)
-                .clickable(onClick = onMenu)
-                .padding(11.dp),
-        )
-
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
-            Text(
-                chatTitle ?: "Hertz-DS",
-                style = MaterialTheme.typography.titleLarge,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    Models.label(chatModel ?: "").uppercase(),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.clickable(onClick = onModelClick),
-                )
-                if (!toolsEnabled) {
-                    Text(
-                        "· nástroje off",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = hertzSemantic().warning,
-                    )
-                }
-            }
-        }
-
-        // credit pill
+        // Left island — drawer
         Surface(
-            shape = CircleShape,
-            color = Color.Transparent,
-            border = androidx.compose.foundation.BorderStroke(1.dp, sem.hairline),
-            onClick = onCreditClick,
+            shape = RoundedCornerShape(14.dp),
+            color = Color(0xFF1C1E22),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2A2E36)),
+            modifier = Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).clickable(onClick = onMenuClick)
         ) {
-            Text(
-                remainingUsd?.let { "$%.2f".format(it) } ?: "$—",
-                style = MaterialTheme.typography.labelMedium,
-                color = hertzSemantic().positive,
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-            )
-        }
-
-        var menuOpen by rememberSaveable { mutableStateOf(false) }
-        Box {
-            Icon(
-                Icons.Filled.MoreHoriz, "Nabídka",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier
-                    .size(42.dp)
-                    .clip(CircleShape)
-                    .clickable { menuOpen = true }
-                    .padding(11.dp),
-            )
-            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                DropdownMenuItem(text = { Text("Přejmenovat") }, onClick = { menuOpen = false; onRename() })
-                DropdownMenuItem(text = { Text(if (toolsEnabled) "Vypnout nástroje" else "Zapnout nástroje") }, onClick = { menuOpen = false; onToggleTools() })
-                DropdownMenuItem(text = { Text("Připíchat nahoru") }, onClick = { menuOpen = false; onPinChat() })
-                DropdownMenuItem(text = { Text("Smazat historii") }, onClick = { menuOpen = false; onClearHistory() })
-                DropdownMenuItem(text = { Text("Paměť agenta") }, onClick = { menuOpen = false; onMemory() })
-                DropdownMenuItem(text = { Text("Naplánované úlohy") }, onClick = { menuOpen = false; onTasks() })
-                DropdownMenuItem(text = { Text("Nastavení") }, onClick = { menuOpen = false; onSettings() })
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Icon(
+                    Icons.Filled.Menu, "Menu",
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp)
+                )
             }
         }
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Hands-free strip + tool ticker
-// ─────────────────────────────────────────────────────────────────────────────
-
-@Composable
-private fun HandsFreeStrip(state: HandsFreeUi, onStop: () -> Unit) {
-    val sem = hertzSemantic()
-    when (state) {
-        HandsFreeUi.Off -> Unit
-        is HandsFreeUi.Failed -> Text(
-            "Hands-free se nepodařilo spustit (${state.message})",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.error,
-            modifier = Modifier.padding(horizontal = 22.dp),
-        )
-
-        else -> {
-            val transition = rememberInfiniteTransition(label = "hf")
-            val pulse by transition.animateFloat(
-                initialValue = 0.35f, targetValue = 1f,
-                animationSpec = infiniteRepeatable(tween(700), RepeatMode.Reverse),
-                label = "pulse",
-            )
+        // Right island — New chat when in a chat, else Ghost toggle
+        if (hasChat) {
             Surface(
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 2.dp),
                 shape = RoundedCornerShape(14.dp),
+                color = Color(0xFF1C1E22),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2A2E36)),
+                modifier = Modifier.clip(RoundedCornerShape(14.dp)).clickable(onClick = onNewChat)
             ) {
                 Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 9.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                    Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Filled.Add, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                    Text("New chat", style = MaterialTheme.typography.labelMedium.copy(color = Color.White), modifier = Modifier.padding(start = 6.dp))
+                }
+            }
+        } else {
+            val ghostOn = ghostEnabled
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = if (ghostOn) Color.White else Color(0xFF1C1E22),
+                border = androidx.compose.foundation.BorderStroke(1.dp, if (ghostOn) Color.White else Color(0xFF2A2E36)),
+                modifier = Modifier.clip(RoundedCornerShape(14.dp)).clickable { onGhostToggle(!ghostOn) }
+            ) {
+                Row(
+                    Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Box(
-                        Modifier
-                            .size(8.dp)
-                            .alpha(pulse)
-                            .background(MaterialTheme.colorScheme.primary, CircleShape),
+                        Modifier.size(8.dp).background(if (ghostOn) Color.Black else Color.White, androidx.compose.foundation.shape.CircleShape)
                     )
-                    val label = when (state) {
-                        HandsFreeUi.Listening -> "poslouchám…"
-                        is HandsFreeUi.Heard -> state.partial.ifBlank { "…"}
-                        HandsFreeUi.Thinking -> "přemýšlím…"
-                        HandsFreeUi.Speaking -> "mluvím…"
-                        else -> ""
-                    }
                     Text(
-                        label,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onBackground,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f).padding(start = 10.dp),
-                    )
-                    Icon(
-                        Icons.Filled.Stop, "Zastavit hands-free",
-                        tint = MaterialTheme.colorScheme.error,
-                        modifier = Modifier
-                            .size(30.dp)
-                            .clip(CircleShape)
-                            .clickable(onClick = onStop)
-                            .padding(7.dp),
+                        if (ghostOn) "Ghost on" else "Ghost off",
+                        style = MaterialTheme.typography.labelMedium.copy(color = if (ghostOn) Color.Black else Color.White),
+                        modifier = Modifier.padding(start = 6.dp)
                     )
                 }
             }
@@ -450,55 +391,52 @@ private fun ToolTicker(state: TurnState.Running) {
             Modifier
                 .size(7.dp)
                 .alpha(pulse)
-                .background(MaterialTheme.colorScheme.primary, CircleShape),
+                .background(Color.White, androidx.compose.foundation.shape.CircleShape),
         )
         Text(
             buildString {
-                append("pracuji")
+                append("Working")
                 state.toolName?.let { append(" · $it") }
                 state.toolDetail?.let { append(" · $it") }
             },
             style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = Color(0xFF9AA0AE),
             modifier = Modifier.padding(start = 10.dp),
         )
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Empty state
-// ─────────────────────────────────────────────────────────────────────────────
-
 @Composable
 private fun EmptyHero(onSuggestion: (String) -> Unit, modifier: Modifier = Modifier) {
     val suggestions = listOf(
-        "Co je dnes v zahraničním tisku?" to "Prohledám web a shrnu události.",
-        "Ulož si: heslo na Wi-Fi je hertz2026" to "Zapíše do dlouhodobé paměti.",
-        "Každý den v 8:00 mi shrň počasí" to "Naplánuje opakovanou úlohu.",
+        "What's in the international press today?" to "I'll search and summarize.",
+        "Remember: my Wi-Fi password is hertz2026" to "Saved to long-term memory.",
+        "Every day at 8:00 summarize the weather" to "Schedules a recurring task.",
     )
     Column(modifier.padding(horizontal = 26.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         WaveformMark(sizeDp = 34)
         Spacer(Modifier.height(18.dp))
-        Text("Jak můžu pomoct?", style = MaterialTheme.typography.displaySmall, textAlign = TextAlign.Center)
+        Text("Ready when you are.", style = MaterialTheme.typography.displaySmall.copy(color = Color.White), textAlign = TextAlign.Center)
         Text(
-            "Agent s přístupem k webu, souborům a paměti.\nOdpovědi čte nahlas, pracuje i na pozadí.",
-            style = MaterialTheme.typography.bodyMedium,
+            "Agent with web, files and memory.\nAnswers are read aloud and it works in background.",
+            style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF9AA0AE)),
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 8.dp),
         )
         Spacer(Modifier.height(28.dp))
         suggestions.forEach { (prompt, hint) ->
             Surface(
-                shape = RoundedCornerShape(14.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                shape = RoundedCornerShape(16.dp),
+                color = Color(0xFF1C1E22),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2A2E36)),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 5.dp)
                     .clickable { onSuggestion(prompt) },
             ) {
                 Column(Modifier.padding(horizontal = 15.dp, vertical = 12.dp)) {
-                    Text(prompt, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(hint, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 2.dp))
+                    Text(prompt, style = MaterialTheme.typography.titleMedium.copy(color = Color.White), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(hint, style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF9AA0AE)), modifier = Modifier.padding(top = 2.dp))
                 }
             }
         }

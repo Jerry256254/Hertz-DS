@@ -18,28 +18,32 @@ import androidx.compose.ui.unit.sp
 import com.hertzds.data.prefs.ThemeMode
 
 // ─────────────────────────────────────────────────────────────────────────────
-// HERTZ-DS · "Signal on Black"
-// Precizní tmavý instrument: hluboký grafát, hairline linky, jeden elektrický
-// signál. Žádná karta v kartě, žádné stínové polštáře, monospace jen pro data.
+// HERTZ-DS · "Pure Space Black" — Material You Expressive, gently squared
+// Pure black canvas, light-gray type, pure-white signal. No blue.
+// Squared-rounded: 12 / 14 / 16 / 20 — never pill, never circular excess.
 // ─────────────────────────────────────────────────────────────────────────────
 
 object HertzPalette {
-    // Dark
-    val Bg = Color(0xFF07080B)
-    val Surface = Color(0xFF0D0F14)
-    val SurfaceHigh = Color(0xFF151922)
-    val Hairline = Color(0xFF20242F)
-    val Ink = Color(0xFFF0F3F8)
-    val InkMuted = Color(0xFF99A3B2)
-    val InkFaint = Color(0xFF5D6675)
-    val Signal = Color(0xFF45D6FF)
-    val SignalDeep = Color(0xFF149EC4)
-    val SignalVeil = Color(0x1A45D6FF)
-    val Positive = Color(0xFF3FE08D)
+    // Dark — pure black space
+    val Bg = Color(0xFF000000)
+    val Surface = Color(0xFF111214)
+    val SurfaceHigh = Color(0xFF1C1E22)
+    val SurfaceHigher = Color(0xFF25282E)
+    val Hairline = Color(0xFF2A2E36)
+    val HairlineStrong = Color(0xFF3A3F4B)
+    val Ink = Color(0xFFECEFF3)          // light gray — primary text
+    val InkMuted = Color(0xFF9AA0AE)      // muted
+    val InkFaint = Color(0xFF6B7280)
+    val Signal = Color(0xFFFFFFFF)       // pure white — replaces blue
+    val SignalMuted = Color(0xFFD1D5DB)
+    val SignalVeil = Color(0x18FFFFFF)   // white veil 10%
+    val SignalVeilStrong = Color(0x30FFFFFF)
+    val Positive = Color(0xFFFFFFFF)     // also white in this theme (user wants white)
+    val PositiveAlt = Color(0xFF9AE6B4)  // keep for credits when needed, but use white by default
     val Negative = Color(0xFFFF6B6B)
     val Warning = Color(0xFFFFC24B)
 
-    // Light
+    // Light — not pure black but keep white-accent language
     val BgL = Color(0xFFF6F8FB)
     val SurfaceL = Color.White
     val SurfaceHighL = Color(0xFFEFF2F7)
@@ -47,11 +51,10 @@ object HertzPalette {
     val InkL = Color(0xFF0F1319)
     val InkMutedL = Color(0xFF59636F)
     val InkFaintL = Color(0xFF98A1AC)
-    val SignalL = Color(0xFF006E93)
-    val SignalVeilL = Color(0x14006E93)
+    val SignalL = Color(0xFF111214)
+    val SignalVeilL = Color(0x14000000)
 }
 
-/** Spacing & radius tokens — the only numbers screens may reach for. */
 class HertzTokens(
     val xs: Int = 4,
     val s: Int = 8,
@@ -65,13 +68,13 @@ val LocalHertz = staticCompositionLocalOf { HertzTokens() }
 
 private fun darkScheme() = darkColorScheme(
     primary = HertzPalette.Signal,
-    onPrimary = Color(0xFF00202B),
-    primaryContainer = HertzPalette.SignalVeil,
-    onPrimaryContainer = HertzPalette.Signal,
-    secondary = HertzPalette.SurfaceHigh,
+    onPrimary = Color(0xFF000000),
+    primaryContainer = HertzPalette.SurfaceHigh,
+    onPrimaryContainer = HertzPalette.Ink,
+    secondary = HertzPalette.SurfaceHigher,
     onSecondary = HertzPalette.Ink,
-    tertiary = HertzPalette.Positive,
-    onTertiary = Color(0xFF002715),
+    tertiary = HertzPalette.Ink,
+    onTertiary = HertzPalette.Bg,
     error = HertzPalette.Negative,
     background = HertzPalette.Bg,
     onBackground = HertzPalette.Ink,
@@ -81,16 +84,17 @@ private fun darkScheme() = darkColorScheme(
     onSurfaceVariant = HertzPalette.InkMuted,
     outline = HertzPalette.Hairline,
     outlineVariant = HertzPalette.Hairline,
+    scrim = Color(0x99000000),
 )
 
 private fun lightScheme() = lightColorScheme(
     primary = HertzPalette.SignalL,
     onPrimary = Color.White,
-    primaryContainer = HertzPalette.SignalVeilL,
-    onPrimaryContainer = HertzPalette.SignalL,
+    primaryContainer = Color(0xFFE8EAED),
+    onPrimaryContainer = HertzPalette.InkL,
     secondary = HertzPalette.SurfaceHighL,
     onSecondary = HertzPalette.InkL,
-    tertiary = Color(0xFF0B7A48),
+    tertiary = HertzPalette.InkL,
     error = Color(0xFFC0392B),
     background = HertzPalette.BgL,
     onBackground = HertzPalette.InkL,
@@ -115,17 +119,18 @@ private val HertzType = androidx.compose.material3.Typography(
     labelSmall = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 10.sp, letterSpacing = 0.5.sp, color = HertzPalette.InkFaint),
 )
 
+// Gently squared — Material You Expressive, never pill
 private val HertzShapes = Shapes(
-    extraSmall = RoundedCornerShape(8.dp),
-    small = RoundedCornerShape(12.dp),
+    extraSmall = RoundedCornerShape(10.dp),
+    small = RoundedCornerShape(14.dp),
     medium = RoundedCornerShape(16.dp),
-    large = RoundedCornerShape(22.dp),
-    extraLarge = RoundedCornerShape(28.dp),
+    large = RoundedCornerShape(20.dp),
+    extraLarge = RoundedCornerShape(24.dp),
 )
 
-/** Semantic aliases so screens never hardcode raw palette values. */
 data class HertzSemantic(
     val hairline: Color,
+    val hairlineStrong: Color,
     val faintText: Color,
     val positive: Color,
     val warning: Color,
@@ -135,9 +140,9 @@ data class HertzSemantic(
 @Composable
 fun hertzSemantic(): HertzSemantic =
     if (MaterialTheme.colorScheme.background == HertzPalette.Bg) {
-        HertzSemantic(HertzPalette.Hairline, HertzPalette.InkFaint, HertzPalette.Positive, HertzPalette.Warning, HertzPalette.SignalVeil)
+        HertzSemantic(HertzPalette.Hairline, HertzPalette.HairlineStrong, HertzPalette.InkFaint, HertzPalette.Signal, HertzPalette.Warning, HertzPalette.SignalVeil)
     } else {
-        HertzSemantic(HertzPalette.HairlineL, HertzPalette.InkFaintL, Color(0xFF0B7A48), Color(0xFF9A6B00), HertzPalette.SignalVeilL)
+        HertzSemantic(HertzPalette.HairlineL, HertzPalette.HairlineL, HertzPalette.InkFaintL, HertzPalette.SignalL, Color(0xFF9A6B00), HertzPalette.SignalVeilL)
     }
 
 @Composable

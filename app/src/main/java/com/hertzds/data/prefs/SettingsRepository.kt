@@ -27,7 +27,7 @@ data class Settings(
     val defaultSystemPrompt: String = DEFAULT_SYSTEM_PROMPT,
     val temperature: Double = 0.7,
     val maxToolIterations: Int = 12,
-    val autoNameChats: Boolean = true,
+    val autoNameChats: Boolean = true, // always on — no UI toggle
     val streamingTts: Boolean = true,
     val ttsEngine: String = "system",
     val ttsVoiceId: String? = null,

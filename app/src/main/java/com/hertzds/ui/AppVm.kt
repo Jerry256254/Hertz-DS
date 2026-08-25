@@ -95,9 +95,35 @@ class AppVm(private val container: AppContainer) : ViewModel() {
     private val _snackbar = MutableStateFlow<String?>(null)
     val snackbar: StateFlow<String?> = _snackbar.asStateFlow()
 
+    // Ghost ephemeral mode — no memory access, not persisted differently yet but UI toggles it
+    private val _ghostMode = MutableStateFlow(false)
+    val ghostMode: StateFlow<Boolean> = _ghostMode.asStateFlow()
+
+    // Dictation: live waveform in the field, insert on stop (no auto-send)
+    private val _isDictating = MutableStateFlow(false)
+    val isDictating: StateFlow<Boolean> = _isDictating.asStateFlow()
+    private val _dictationRms = MutableStateFlow(0f)
+    val dictationRms: StateFlow<Float> = _dictationRms.asStateFlow()
+    private val _dictationPartial = MutableStateFlow("")
+    val dictationPartial: StateFlow<String> = _dictationPartial.asStateFlow()
+
+    // Call: full-duplex voice chat — input hidden, controls shown
+    private val _isInCall = MutableStateFlow(false)
+    val isInCall: StateFlow<Boolean> = _isInCall.asStateFlow()
+    private val _callMuted = MutableStateFlow(false)
+    val callMuted: StateFlow<Boolean> = _callMuted.asStateFlow()
+    private val _callPaused = MutableStateFlow(false)
+    val callPaused: StateFlow<Boolean> = _callPaused.asStateFlow()
+    private val _callRms = MutableStateFlow(0f)
+    val callRms: StateFlow<Float> = _callRms.asStateFlow()
+    private val _isCallUserSpeaking = MutableStateFlow(false)
+    val isCallUserSpeaking: StateFlow<Boolean> = _isCallUserSpeaking.asStateFlow()
+
     private var turnJob: Job? = null
     private var handsFreeJob: Job? = null
     private var messagesJob: Job? = null
+    private var dictationJob: Job? = null
+    private var callJob: Job? = null
     private val sendMutex = Mutex()
     private var lastAlertAt = 0L
 
@@ -135,6 +161,34 @@ class AppVm(private val container: AppContainer) : ViewModel() {
             chats.observeMessages(chatId)
                 .catch { _snackbar.value = it.message }
                 .collect { _messages.value = it }
+        }
+    }
+
+    fun newChat() {
+        viewModelScope.launch {
+            val s = settings.value ?: return@launch
+            val chat = chats.createChat(
+                title = DEFAULT_CHAT_TITLE,
+                model = s.defaultModel,
+                systemPrompt = null,
+            )
+            openChat(chat.id)
+        }
+    }
+
+    fun toggleGhostMode(enabled: Boolean) {
+        _ghostMode.value = enabled
+        if (enabled) {
+            // Create an ephemeral ghost chat — marked via title, no memory will be injected
+            viewModelScope.launch {
+                val s = settings.value ?: return@launch
+                val chat = chats.createChat(
+                    title = "Ghost — ephemeral",
+                    model = s.defaultModel,
+                    systemPrompt = "You are in ghost mode: do not use long-term memory tools and do not store anything. Answer only from this conversation.",
+                )
+                openChat(chat.id)
+            }
         }
     }
 
@@ -215,10 +269,12 @@ class AppVm(private val container: AppContainer) : ViewModel() {
             chats.addAttachment(attachment)
             _pendingAttachments.value += attachment
 
-            // Extract text now so the model can use it even without vision support.
+            // Extract text via DeepSeek OCR (ML Kit first, then DeepSeek vision fallback)
             viewModelScope.launch {
                 val s = settings.value ?: return@launch
-                val extracted = OcrBridge.extract(container.http, context, uri, attachment, s.mistralOcrKey)
+                // Use the first available DeepSeek key for OCR fallback
+                val deepSeekKey = keys.nextKey()?.secret
+                val extracted = OcrBridge.extract(container.http, context, uri, attachment, deepSeekKey)
                 if (extracted != null) {
                     chats.setExtractedText(attachment.id, extracted)
                     _pendingAttachments.value = _pendingAttachments.value.map {
@@ -368,11 +424,11 @@ class AppVm(private val container: AppContainer) : ViewModel() {
         }
     }
 
-    /** Cheap one-shot completion that names a chat after its first exchange. */
+    /** Cheap one-shot completion that names a chat after its first exchange — always on. */
     private fun maybeAutoName(chatId: String) {
         viewModelScope.launch {
             val s = settings.value ?: return@launch
-            if (!s.autoNameChats) return@launch
+            // autoNameChats is always true (toggle removed) — kept for data compat
             val chat = chats.getChat(chatId) ?: return@launch
             if (!chat.titleIsAuto || chats.userMessageCount(chatId) < 1) return@launch
 
@@ -463,7 +519,137 @@ class AppVm(private val container: AppContainer) : ViewModel() {
 
     fun releaseVoice() {
         stopHandsFree()
+        stopDictation()
+        endCall()
         voice.release()
+    }
+
+    // ---- dictation (insert into text, no auto-send) ---------------------------
+
+    fun startDictation() {
+        if (_isDictating.value) return
+        val s = settings.value ?: return
+        if (!voice.hasMicPermission()) {
+            _snackbar.value = "Microphone permission required"
+            return
+        }
+        _isDictating.value = true
+        _dictationPartial.value = ""
+        dictationJob = viewModelScope.launch {
+            // Fake RMS pulse for waveform while real STT runs
+            val rmsJob = launch {
+                while (isActive && _isDictating.value) {
+                    _dictationRms.value = (0.15f + (Math.random() * 0.65).toFloat()).coerceIn(0f, 1f)
+                    kotlinx.coroutines.delay(80)
+                }
+            }
+            try {
+                voice.listenOnce(s).collect { state ->
+                    when (state) {
+                        is HandsFreeState.Heard -> _dictationPartial.value = state.text
+                        is HandsFreeState.Error -> {
+                            _snackbar.value = state.message
+                            _isDictating.value = false
+                        }
+                        else -> Unit
+                    }
+                }
+            } finally {
+                rmsJob.cancel()
+                _dictationRms.value = 0f
+                if (_isDictating.value) {
+                    // Auto-stop after utterance, but keep partial for UI to insert
+                    _isDictating.value = false
+                }
+            }
+        }
+    }
+
+    fun stopDictation(): String {
+        val text = _dictationPartial.value
+        dictationJob?.cancel()
+        dictationJob = null
+        _isDictating.value = false
+        _dictationRms.value = 0f
+        _dictationPartial.value = ""
+        return text
+    }
+
+    // ---- call mode (full-duplex, fog, streaming bubbles, barge-in) -----------
+
+    fun startCall() {
+        if (_isInCall.value) return
+        val s = settings.value ?: return
+        if (!voice.hasMicPermission()) {
+            _snackbar.value = "Microphone permission required"
+            return
+        }
+        _isInCall.value = true
+        _callMuted.value = false
+        _callPaused.value = false
+        _isCallUserSpeaking.value = false
+        callJob = viewModelScope.launch {
+            val rmsJob = launch {
+                while (isActive && _isInCall.value) {
+                    val target = if (_isCallUserSpeaking.value || turn.value is TurnState.Running) 0.6f else 0.08f
+                    _callRms.value = target * (0.7f + (Math.random() * 0.6).toFloat())
+                    kotlinx.coroutines.delay(90)
+                }
+            }
+            try {
+                while (isActive && _isInCall.value) {
+                    if (_callPaused.value || _callMuted.value) {
+                        _isCallUserSpeaking.value = false
+                        kotlinx.coroutines.delay(200)
+                        continue
+                    }
+                    _isCallUserSpeaking.value = true
+                    val heard = runCatching { voice.listenOnce(s).last() }.getOrNull()
+                    _isCallUserSpeaking.value = false
+                    when (heard) {
+                        is HandsFreeState.Heard -> {
+                            val text = heard.text.trim()
+                            if (text.isBlank()) continue
+                            // Barge-in: if AI is speaking, interrupt (true speech only — we check text length)
+                            if (turn.value is TurnState.Running && text.length > 2) {
+                                stop()
+                                voice.stopSpeaking()
+                            }
+                            if (text.length < 2) continue // ignore sneeze/short noise
+                            // Create user bubble and immediately get AI response with TTS streaming
+                            viewModelScope.launch { runTurn(text) }
+                            // Wait a bit before next listen to let TTS start and avoid immediate re-trigger
+                            kotlinx.coroutines.delay(800)
+                        }
+                        is HandsFreeState.Error -> {
+                            if ((heard as HandsFreeState.Error).message.contains("permission")) {
+                                _isInCall.value = false
+                                break
+                            }
+                            kotlinx.coroutines.delay(600)
+                        }
+                        else -> kotlinx.coroutines.delay(400)
+                    }
+                }
+            } finally {
+                rmsJob.cancel()
+                _callRms.value = 0f
+                _isCallUserSpeaking.value = false
+            }
+        }
+    }
+
+    fun toggleCallMute(muted: Boolean) { _callMuted.value = muted }
+    fun toggleCallPause(paused: Boolean) { _callPaused.value = paused }
+    fun endCall() {
+        callJob?.cancel()
+        callJob = null
+        _isInCall.value = false
+        _callMuted.value = false
+        _callPaused.value = false
+        _callRms.value = 0f
+        _isCallUserSpeaking.value = false
+        voice.stopSpeaking()
     }
 }
 

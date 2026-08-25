@@ -39,6 +39,22 @@ sealed class VoiceModel(
                 extractedDirName = "vits-piper-cs_CZ-jirka-medium",
             ),
             Piper(
+                id = "piper-cs-hana",
+                displayName = "Hana (čeština)",
+                approxSizeMb = 63,
+                language = "cs",
+                releaseAsset = "vits-piper-cs_CZ-hana-medium.tar.bz2",
+                extractedDirName = "vits-piper-cs_CZ-hana-medium",
+            ),
+            Piper(
+                id = "piper-cs-lukas",
+                displayName = "Lukáš (čeština)",
+                approxSizeMb = 63,
+                language = "cs",
+                releaseAsset = "vits-piper-cs_CZ-lukas-medium.tar.bz2",
+                extractedDirName = "vits-piper-cs_CZ-lukas-medium",
+            ),
+            Piper(
                 id = "piper-en-amy",
                 displayName = "Amy (English)",
                 approxSizeMb = 63,

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="hertz_window_bg">#FF07080B</color>
-    <color name="hertz_signal">#FF45D6FF</color>
+    <color name="hertz_window_bg">#FF000000</color>
+    <color name="hertz_signal">#FFFFFFFF</color>
 </resources>
