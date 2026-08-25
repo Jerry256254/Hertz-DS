@@ -1,0 +1,6 @@
+-keepattributes *Annotation*, InnerClasses
+-dontnote kotlinx.serialization.**
+-keepclassmembers class kotlinx.serialization.json.** { *; }
+-keep,includedescriptorclasses class com.hertzds.**$$serializer { *; }
+-keepclassmembers class com.hertzds.** { *** Companion; }
+-keep class com.k2fsa.sherpa.onnx.** { *; }
