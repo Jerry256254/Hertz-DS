@@ -39,6 +39,7 @@ import com.hertzds.deepseek.Models
 import com.hertzds.ui.AppVm
 import com.hertzds.ui.HandsFreeUi
 import com.hertzds.ui.TurnState
+import com.hertzds.ui.theme.LocalStrings
 import kotlinx.coroutines.launch
 
 @Composable
@@ -53,6 +54,7 @@ fun ChatScreen(
     val scope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
     val drawerState = rememberDrawerState(DrawerValue.Closed)
+    val str = LocalStrings.current
 
     val chatList by vm.chatList.collectAsStateWithLifecycle()
     val currentChat by vm.currentChat.collectAsStateWithLifecycle()
@@ -68,13 +70,14 @@ fun ChatScreen(
     val isInCall by vm.isInCall.collectAsStateWithLifecycle()
     val callRms by vm.callRms.collectAsStateWithLifecycle()
     val isCallUserSpeaking by vm.isCallUserSpeaking.collectAsStateWithLifecycle()
+    val readingMessageId by vm.readingMessageId.collectAsStateWithLifecycle()
 
     val snackbarHost = remember { SnackbarHostState() }
     var showNewGhostDialog by rememberSaveable { mutableStateOf(false) }
     var showModelPicker by rememberSaveable { mutableStateOf(false) }
 
     val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (!granted) vm.showSnackbar("Microphone permission is required.")
+        if (!granted) vm.showSnackbar(str.micPermissionRequired)
     }
     val attachLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
@@ -91,7 +94,7 @@ fun ChatScreen(
     LaunchedEffect(snackbarMessage) {
         val message = snackbarMessage ?: return@LaunchedEffect
         if (message.startsWith("LOW_CREDITS:")) {
-            snackbarHost.showSnackbar("Low credits: ${message.removePrefix("LOW_CREDITS:")}$ remaining")
+            snackbarHost.showSnackbar("${str.lowCreditsPrefix}${message.removePrefix("LOW_CREDITS:")}${str.lowCreditsSuffix}")
             vm.consumeSnackbar()
         } else {
             snackbarHost.showSnackbar(message)
@@ -185,7 +188,15 @@ fun ChatScreen(
                     ) {
                         items(messages, key = { it.id }) { message ->
                             // In call mode, don't show full markdown — just plain
-                            MessageRow(message, isCallMode = isInCall)
+                            MessageRow(
+                                message,
+                                isCallMode = isInCall,
+                                isReading = readingMessageId == message.id,
+                                onToggleReadAloud = {
+                                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    vm.toggleReadAloud(message.id, message.content)
+                                },
+                            )
                         }
                         when (val t = turn) {
                             is TurnState.Running -> item { ToolTicker(t) }
@@ -270,7 +281,7 @@ fun ChatScreen(
                             },
                         )
                         Text(
-                            "Hertz-DS can make mistakes — just like people.",
+                            str.disclaimer,
                             style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6B7280)),
                             textAlign = TextAlign.Center,
                             modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp)
@@ -316,6 +327,7 @@ private fun FloatingIslands(
     onGhostToggle: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val str = LocalStrings.current
     Row(
         modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -349,7 +361,7 @@ private fun FloatingIslands(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(Icons.Filled.Add, null, tint = Color.White, modifier = Modifier.size(16.dp))
-                    Text("New chat", style = MaterialTheme.typography.labelMedium.copy(color = Color.White), modifier = Modifier.padding(start = 6.dp))
+                    Text(str.newChat, style = MaterialTheme.typography.labelMedium.copy(color = Color.White), modifier = Modifier.padding(start = 6.dp))
                 }
             }
         } else {
@@ -368,7 +380,7 @@ private fun FloatingIslands(
                         Modifier.size(8.dp).background(if (ghostOn) Color.Black else Color.White, androidx.compose.foundation.shape.CircleShape)
                     )
                     Text(
-                        if (ghostOn) "Ghost on" else "Ghost off",
+                        if (ghostOn) str.ghostOn else str.ghostOff,
                         style = MaterialTheme.typography.labelMedium.copy(color = if (ghostOn) Color.Black else Color.White),
                         modifier = Modifier.padding(start = 6.dp)
                     )
@@ -380,6 +392,7 @@ private fun FloatingIslands(
 
 @Composable
 private fun ToolTicker(state: TurnState.Running) {
+    val str = LocalStrings.current
     val transition = rememberInfiniteTransition(label = "tick")
     val pulse by transition.animateFloat(
         initialValue = 0.3f, targetValue = 1f,
@@ -395,7 +408,7 @@ private fun ToolTicker(state: TurnState.Running) {
         )
         Text(
             buildString {
-                append("Working")
+                append(str.working)
                 state.toolName?.let { append(" · $it") }
                 state.toolDetail?.let { append(" · $it") }
             },
@@ -408,17 +421,18 @@ private fun ToolTicker(state: TurnState.Running) {
 
 @Composable
 private fun EmptyHero(onSuggestion: (String) -> Unit, modifier: Modifier = Modifier) {
+    val str = LocalStrings.current
     val suggestions = listOf(
-        "What's in the international press today?" to "I'll search and summarize.",
-        "Remember: my Wi-Fi password is hertz2026" to "Saved to long-term memory.",
-        "Every day at 8:00 summarize the weather" to "Schedules a recurring task.",
+        str.suggestion1Prompt to str.suggestion1Hint,
+        str.suggestion2Prompt to str.suggestion2Hint,
+        str.suggestion3Prompt to str.suggestion3Hint,
     )
     Column(modifier.padding(horizontal = 26.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         WaveformMark(sizeDp = 34)
         Spacer(Modifier.height(18.dp))
-        Text("Ready when you are.", style = MaterialTheme.typography.displaySmall.copy(color = Color.White), textAlign = TextAlign.Center)
+        Text(str.heroTitle, style = MaterialTheme.typography.displaySmall.copy(color = Color.White), textAlign = TextAlign.Center)
         Text(
-            "Agent with web, files and memory.\nAnswers are read aloud and it works in background.",
+            str.heroSubtitle,
             style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF9AA0AE)),
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 8.dp),

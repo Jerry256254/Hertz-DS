@@ -17,6 +17,7 @@ import com.hertzds.deepseek.ApiMessage
 import com.hertzds.deepseek.ChatRequest
 import com.hertzds.deepseek.Models
 import com.hertzds.tools.OcrBridge
+import com.hertzds.ui.theme.Strings
 import com.hertzds.voice.HandsFreeState
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -55,9 +56,7 @@ sealed interface HandsFreeUi {
 
 class AppVm(private val container: AppContainer) : ViewModel() {
 
-    companion object {
-        const val DEFAULT_CHAT_TITLE = "Nový chat"
-    }
+    private fun defaultChatTitle(): String = Strings.resolve(settings.value?.language ?: com.hertzds.data.prefs.AppLanguage.SYSTEM).newChat
 
     private val chats = container.chats
     private val keys = container.keys
@@ -119,6 +118,11 @@ class AppVm(private val container: AppContainer) : ViewModel() {
     private val _isCallUserSpeaking = MutableStateFlow(false)
     val isCallUserSpeaking: StateFlow<Boolean> = _isCallUserSpeaking.asStateFlow()
 
+    // Per-message "read aloud" — independent of the main turn's own streaming TTS.
+    private val _readingMessageId = MutableStateFlow<String?>(null)
+    val readingMessageId: StateFlow<String?> = _readingMessageId.asStateFlow()
+    private var readJob: Job? = null
+
     private var turnJob: Job? = null
     private var handsFreeJob: Job? = null
     private var messagesJob: Job? = null
@@ -148,7 +152,7 @@ class AppVm(private val container: AppContainer) : ViewModel() {
             val chat = existing ?: chats.chats.first().firstOrNull() ?: chats.ensureChat(
                 model = s.defaultModel,
                 systemPrompt = null,
-                fallbackTitle = DEFAULT_CHAT_TITLE,
+                fallbackTitle = defaultChatTitle(),
             )
             openChat(chat.id)
         }
@@ -168,7 +172,7 @@ class AppVm(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch {
             val s = settings.value ?: return@launch
             val chat = chats.createChat(
-                title = DEFAULT_CHAT_TITLE,
+                title = defaultChatTitle(),
                 model = s.defaultModel,
                 systemPrompt = null,
             )
@@ -520,8 +524,36 @@ class AppVm(private val container: AppContainer) : ViewModel() {
     fun releaseVoice() {
         stopHandsFree()
         stopDictation()
+        stopReadAloud()
         endCall()
         voice.release()
+    }
+
+    // ---- per-message read-aloud (independent of the live turn's own TTS) -----
+
+    fun toggleReadAloud(messageId: String, text: String) {
+        if (_readingMessageId.value == messageId) {
+            stopReadAloud()
+            return
+        }
+        readJob?.cancel()
+        voice.stopSpeaking()
+        _readingMessageId.value = messageId
+        readJob = viewModelScope.launch {
+            val s = settings.value ?: return@launch
+            try {
+                voice.speak(text, s)
+            } finally {
+                if (_readingMessageId.value == messageId) _readingMessageId.value = null
+            }
+        }
+    }
+
+    fun stopReadAloud() {
+        readJob?.cancel()
+        readJob = null
+        voice.stopSpeaking()
+        _readingMessageId.value = null
     }
 
     // ---- dictation (insert into text, no auto-send) ---------------------------

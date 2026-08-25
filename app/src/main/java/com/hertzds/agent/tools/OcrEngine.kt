@@ -58,11 +58,6 @@ class OcrEngine(
         return kotlin.Result.success(Result("", "ML Kit"))
     }
 
-    // Kept for backwards compat — delegates to DeepSeek path
-    @Deprecated("Use DeepSeek OCR", ReplaceWith("recognize(context, uri, deepSeekKey)"))
-    suspend fun recognizeWithMistral(context: Context, uri: Uri, key: String?): kotlin.Result<Result> =
-        recognize(context, uri, key)
-
     private suspend fun mlKit(context: Context, uri: Uri): String =
         withContext(Dispatchers.IO) {
             val image = InputImage.fromFilePath(context, uri)
@@ -104,7 +99,7 @@ class OcrEngine(
                 })
             }
             val payload: JsonObject = buildJsonObject {
-                put("model", "deepseek-chat")
+                put("model", com.hertzds.deepseek.Models.VISION)
                 put("messages", messagesArray)
                 put("temperature", 0.0)
                 put("max_tokens", 4096)
@@ -124,12 +119,7 @@ class OcrEngine(
             }
         }
 
-    // Legacy Mistral path kept as thin wrapper for any lingering calls
-    private suspend fun mistral(context: Context, uri: Uri, apiKey: String): String =
-        deepSeekOcr(context, uri, apiKey)
-
     companion object {
-        const val MISTRAL_OCR_MODEL = "deepseek-ocr"
         private val JSON_MEDIA = "application/json; charset=utf-8".toMediaType()
     }
 }

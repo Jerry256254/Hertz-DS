@@ -32,6 +32,7 @@ import com.hertzds.BuildConfig
 import com.hertzds.data.prefs.AppLanguage
 import com.hertzds.data.prefs.ThemeMode
 import com.hertzds.deepseek.Models
+import com.hertzds.ui.theme.LocalStrings
 import com.hertzds.voice.DownloadProgress
 import com.hertzds.voice.SileroVadModel
 import com.hertzds.voice.VoiceModel
@@ -39,12 +40,13 @@ import com.hertzds.voice.WhisperModel
 import kotlinx.coroutines.launch
 
 @Composable
-fun SettingsScreen(container: AppContainer, onBack: () -> Unit) {
+fun SettingsScreen(container: AppContainer, onBack: () -> Unit, onOpenKeys: () -> Unit) {
     val settings by container.settings.settings.collectAsStateWithLifecycle(initialValue = null)
     val s = settings ?: return
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
+    val str = LocalStrings.current
 
     // Expand states — keys expanded by default
     var keysExpanded by rememberSaveable { mutableStateOf(true) }
@@ -67,7 +69,7 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit) {
             ) {
                 Icon(Icons.Filled.Close, "Back", tint = Color.White, modifier = Modifier.size(20.dp))
             }
-            Text("Settings", style = MaterialTheme.typography.titleLarge.copy(color = Color.White), modifier = Modifier.padding(start = 12.dp))
+            Text(str.settings, style = MaterialTheme.typography.titleLarge.copy(color = Color.White), modifier = Modifier.padding(start = 12.dp))
         }
 
         LazyColumn(
@@ -75,29 +77,47 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.weight(1f)
         ) {
+            // Language — always visible, top-level (not collapsible: it's fundamental)
+            item {
+                Column(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Color(0xFF111214))
+                        .border(1.dp, Color(0xFF2A2E36), RoundedCornerShape(16.dp)).padding(horizontal = 16.dp, vertical = 14.dp)
+                ) {
+                    ChoiceRow(
+                        label = str.language,
+                        options = listOf(
+                            AppLanguage.SYSTEM.tag to str.languageSystem,
+                            AppLanguage.CZECH.tag to str.languageCzech,
+                            AppLanguage.ENGLISH.tag to str.languageEnglish,
+                        ),
+                        selected = s.language.tag,
+                    ) { tag ->
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        val lang = AppLanguage.entries.first { it.tag == tag }
+                        scope.launch { container.settings.setLanguage(lang) }
+                    }
+                }
+            }
+
             // Keys & Credits — expandable, shows summary + manage button
             item {
                 ExpandableSection(
-                    title = "Keys & Credits",
-                    subtitle = "API keys, balance and billing",
+                    title = str.keysAndCredits,
+                    subtitle = str.keysAndCreditsSubtitle,
                     expanded = keysExpanded,
                     onToggle = { keysExpanded = !keysExpanded; haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove) }
                 ) {
-                    // Show credit summary (reusing logic from KeysScreen would require VM, keep simple)
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
-                        Text("Manage your DeepSeek API keys and check remaining credits.", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF9AA0AE)))
+                        Text(str.manageKeysDesc, style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF9AA0AE)))
                         OutlinedButton(
                             onClick = {
-                                // For now, show snackbar — full keys UI is still via separate screen if needed
-                                // We could navigate to KeysScreen, but spec says expandable section, so embed simple add
                                 haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                onOpenKeys()
                             },
                             shape = RoundedCornerShape(12.dp),
                             border = androidx.compose.foundation.BorderStroke(1.dp, Color.White),
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
-                        ) { Text("Manage keys") }
-                        // Moved from chat overflow: chat management moved here as global settings?
-                        // Actually chat-specific actions (pin, clear) don't belong in global settings — we keep those in drawer
+                        ) { Text(str.manageKeys) }
                     }
                 }
             }
@@ -105,22 +125,22 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit) {
             // AI Behavior — expandable
             item {
                 ExpandableSection(
-                    title = "AI Behavior",
-                    subtitle = "Model, system prompt and tools",
+                    title = str.aiBehavior,
+                    subtitle = str.aiBehaviorSubtitle,
                     expanded = aiExpanded,
                     onToggle = { aiExpanded = !aiExpanded; haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove) }
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         ValueRow(
-                            label = "Default model",
+                            label = str.defaultModel,
                             value = Models.label(s.defaultModel),
                             options = Models.ALL.map { it to Models.label(it) }
                         ) { id -> scope.launch { container.settings.setDefaultModel(id) } }
 
                         PromptEditor(s.defaultSystemPrompt) { v -> scope.launch { container.settings.setSystemPrompt(v) } }
 
-                        SliderRow(label = "Creativity", hint = "%.1f".format(s.temperature), value = s.temperature.toFloat(), range = 0f..2f, steps = 7) { v -> scope.launch { container.settings.setTemperature(v.toDouble()) } }
-                        SliderRow(label = "Max tool iterations", hint = "${s.maxToolIterations}", value = s.maxToolIterations.toFloat(), range = 1f..30f, steps = 28) { v -> scope.launch { container.settings.setMaxToolIterations(v.toInt()) } }
+                        SliderRow(label = str.creativity, hint = "%.1f".format(s.temperature), value = s.temperature.toFloat(), range = 0f..2f, steps = 7) { v -> scope.launch { container.settings.setTemperature(v.toDouble()) } }
+                        SliderRow(label = str.maxToolIterations, hint = "${s.maxToolIterations}", value = s.maxToolIterations.toFloat(), range = 1f..30f, steps = 28) { v -> scope.launch { container.settings.setMaxToolIterations(v.toInt()) } }
 
                         // Auto-naming is always on — no toggle, just info
                         Row(
@@ -128,17 +148,17 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit) {
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(Modifier.weight(1f)) {
-                                Text("Auto-name chats", style = MaterialTheme.typography.bodyLarge.copy(color = Color.White))
-                                Text("Always on — new chats are titled automatically", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280)))
+                                Text(str.autoNameChats, style = MaterialTheme.typography.bodyLarge.copy(color = Color.White))
+                                Text(str.autoNameChatsDesc, style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280)))
                             }
                             Box(Modifier.size(20.dp).background(Color.White, RoundedCornerShape(4.dp)), contentAlignment = Alignment.Center) {
                                 Text("✓", color = Color.Black, style = MaterialTheme.typography.labelSmall)
                             }
                         }
 
-                        ToggleRow("Web search", s.webSearchEnabled) { v -> scope.launch { container.settings.setWebSearchEnabled(v) } }
-                        ToggleRow("File tools", s.fileToolsEnabled) { v -> scope.launch { container.settings.setFileToolsEnabled(v) } }
-                        ToggleRow("Long-term memory", s.memoryEnabled) { v -> scope.launch { container.settings.setMemoryEnabled(v) } }
+                        ToggleRow(str.webSearch, s.webSearchEnabled) { v -> scope.launch { container.settings.setWebSearchEnabled(v) } }
+                        ToggleRow(str.fileTools, s.fileToolsEnabled) { v -> scope.launch { container.settings.setFileToolsEnabled(v) } }
+                        ToggleRow(str.longTermMemory, s.memoryEnabled) { v -> scope.launch { container.settings.setMemoryEnabled(v) } }
                     }
                 }
             }
@@ -146,26 +166,26 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit) {
             // Voice — expandable
             item {
                 ExpandableSection(
-                    title = "Voice",
-                    subtitle = "TTS, STT and speech",
+                    title = str.voice,
+                    subtitle = str.voiceSubtitle,
                     expanded = voiceExpanded,
                     onToggle = { voiceExpanded = !voiceExpanded; haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove) }
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        ToggleRow("Stream speech sentence-by-sentence", s.streamingTts) { v -> scope.launch { container.settings.setStreamingTts(v) } }
+                        ToggleRow(str.streamSpeech, s.streamingTts) { v -> scope.launch { container.settings.setStreamingTts(v) } }
 
-                        ChoiceRow(label = "Text-to-speech", options = listOf("system" to "System", "sherpa" to "Piper · offline"), selected = s.ttsEngine) { id -> scope.launch { container.settings.setTtsEngine(id) } }
+                        ChoiceRow(label = str.textToSpeech, options = listOf("system" to str.systemEngine, "sherpa" to str.piperOffline), selected = s.ttsEngine) { id -> scope.launch { container.settings.setTtsEngine(id) } }
                         if (s.ttsEngine == "sherpa") {
                             VoiceModelSection(container, s.ttsVoiceId) { id -> scope.launch { container.settings.setTtsVoice(id) } }
                         }
-                        SliderRow(label = "Speech speed", hint = "%.1fx".format(s.ttsSpeed), value = s.ttsSpeed, range = 0.5f..2f, steps = 5) { v -> scope.launch { container.settings.setTtsSpeed(v) } }
+                        SliderRow(label = str.speechSpeed, hint = "%.1fx".format(s.ttsSpeed), value = s.ttsSpeed, range = 0.5f..2f, steps = 5) { v -> scope.launch { container.settings.setTtsSpeed(v) } }
 
-                        ChoiceRow(label = "Speech recognition", options = listOf("system" to "System", "sherpa" to "Whisper · offline"), selected = s.sttEngine) { id -> scope.launch { container.settings.setSttEngine(id) } }
+                        ChoiceRow(label = str.speechToText, options = listOf("system" to str.systemEngine, "sherpa" to str.whisperOffline), selected = s.sttEngine) { id -> scope.launch { container.settings.setSttEngine(id) } }
                         if (s.sttEngine == "sherpa") {
                             SttModelSection(container, s.sttModelId) { id -> scope.launch { container.settings.setSttModel(id) } }
                             VadSection(container)
                         }
-                        Text("Dictation and Call mode buttons appear in the composer when the field is empty. No default hands-free toggle.", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280)), modifier = Modifier.padding(top = 6.dp))
+                        Text(str.voiceModesHint, style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280)), modifier = Modifier.padding(top = 6.dp))
                     }
                 }
             }
@@ -173,28 +193,18 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit) {
             // About / Updates / Legal — expandable footer
             item {
                 ExpandableSection(
-                    title = "About",
-                    subtitle = "Updates, links and legal",
+                    title = str.about,
+                    subtitle = str.aboutSubtitle,
                     expanded = aboutExpanded,
                     onToggle = { aboutExpanded = !aboutExpanded; haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove) }
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 4.dp)) {
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
-                                Text("Version", style = MaterialTheme.typography.bodyLarge.copy(color = Color.White))
+                                Text(str.version, style = MaterialTheme.typography.bodyLarge.copy(color = Color.White))
                                 Text(BuildConfig.VERSION_NAME + " (${BuildConfig.VERSION_CODE})", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF9AA0AE)))
                             }
-                            OutlinedButton(
-                                onClick = {
-                                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    // Check for updates — open GitHub releases
-                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Jerry256254/Hertz-DS/releases"))
-                                    context.startActivity(intent)
-                                },
-                                shape = RoundedCornerShape(12.dp),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White),
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
-                            ) { Text("Check for updates") }
+                            UpdateCheckButton(str)
                         }
 
                         HorizontalDivider(color = Color(0xFF1C1E22))
@@ -206,7 +216,7 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit) {
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("kuclab.org — visit our website", color = Color.White)
+                            Text(str.visitWebsite, color = Color.White)
                         }
 
                         TextButton(
@@ -216,11 +226,11 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit) {
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("Legal documents & Privacy Policy", color = Color.White)
+                            Text(str.legalDocuments, color = Color.White)
                         }
 
                         Text(
-                            "Hertz-DS is open source (MIT). All data stays on-device except model requests to api.deepseek.com.",
+                            str.openSourceNotice,
                             style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280)),
                             modifier = Modifier.padding(top = 4.dp)
                         )
@@ -228,6 +238,53 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit) {
                 }
             }
         }
+    }
+}
+
+/**
+ * Compares BuildConfig.VERSION_NAME against the latest GitHub release tag.
+ * Only shows a button (straight to GitHub) when a newer version actually exists;
+ * otherwise just states that the app is current.
+ */
+@Composable
+private fun UpdateCheckButton(str: com.hertzds.ui.theme.Strings) {
+    val context = LocalContext.current
+    var latestTag by remember { mutableStateOf<String?>(null) }
+    var checked by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        latestTag = runCatching {
+            val url = java.net.URL("https://api.github.com/repos/Jerry256254/Hertz-DS/releases/latest")
+            (url.openConnection() as java.net.HttpURLConnection).run {
+                requestMethod = "GET"
+                setRequestProperty("Accept", "application/vnd.github+json")
+                connectTimeout = 8000
+                readTimeout = 8000
+                val body = inputStream.bufferedReader().readText()
+                disconnect()
+                Regex("\"tag_name\"\\s*:\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1)
+            }
+        }.getOrNull()
+        checked = true
+    }
+
+    val current = BuildConfig.VERSION_NAME.removePrefix("v").substringBefore("-")
+    val latest = latestTag?.removePrefix("v")
+    val isNewer = latest != null && latest != current
+
+    if (!checked) return
+    if (isNewer) {
+        OutlinedButton(
+            onClick = {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Jerry256254/Hertz-DS/releases/latest"))
+                context.startActivity(intent)
+            },
+            shape = RoundedCornerShape(12.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color.White),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
+        ) { Text(str.updateAvailable) }
+    } else {
+        Text(str.upToDate, style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280)))
     }
 }
 
@@ -355,13 +412,14 @@ private fun SliderRow(label: String, hint: String, value: Float, range: ClosedFl
 private fun PromptEditor(current: String, onCommit: (String) -> Unit) {
     var editing by rememberSaveable { mutableStateOf(false) }
     var draft by rememberSaveable { mutableStateOf("") }
+    val str = LocalStrings.current
     Column(Modifier.padding(vertical = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("SYSTEM PROMPT", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6B7280)), modifier = Modifier.weight(1f))
+            Text(str.systemPrompt, style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6B7280)), modifier = Modifier.weight(1f))
             TextButton(onClick = {
                 if (editing) onCommit(draft) else draft = current
                 editing = !editing
-            }) { Text(if (editing) "Save" else "Edit", color = Color.White) }
+            }) { Text(if (editing) str.save else str.edit, color = Color.White) }
         }
         if (editing) {
             OutlinedTextField(
@@ -443,22 +501,23 @@ private fun ModelDownloadRow(
     name: String, meta: String, isDownloaded: Boolean, isSelected: Boolean, busy: Boolean,
     progressState: DownloadProgress?, onDownload: () -> Unit, onSelect: () -> Unit,
 ) {
+    val str = LocalStrings.current
     Column(Modifier.padding(vertical = 6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(name, style = MaterialTheme.typography.bodyLarge.copy(color = Color.White))
-                Text("$meta · ${if (isDownloaded) "downloaded" else "not downloaded"}", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6B7280)))
+                Text("$meta · ${if (isDownloaded) str.downloaded else str.notDownloaded}", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6B7280)))
             }
             when {
-                isDownloaded && isSelected -> TextButton(onClick = onSelect) { Text("Active ✓", color = Color.White) }
-                isDownloaded -> TextButton(onClick = onSelect) { Text("Select", color = Color(0xFF9AA0AE)) }
-                !busy -> TextButton(onClick = onDownload) { Text("Download", color = Color.White) }
+                isDownloaded && isSelected -> TextButton(onClick = onSelect) { Text(str.active, color = Color.White) }
+                isDownloaded -> TextButton(onClick = onSelect) { Text(str.select, color = Color(0xFF9AA0AE)) }
+                !busy -> TextButton(onClick = onDownload) { Text(str.download, color = Color.White) }
             }
         }
         when (val p = progressState) {
             is DownloadProgress.Downloading -> DownloadBar(p.bytesRead, p.totalBytes)
             is DownloadProgress.Extracting -> LinearProgressIndicator(Modifier.fillMaxWidth().height(3.dp), color = Color.White, trackColor = Color(0xFF2A2E36))
-            is DownloadProgress.Failed -> Text("Error: ${p.message}", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFFFF6B6B)))
+            is DownloadProgress.Failed -> Text("${str.downloadError}: ${p.message}", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFFFF6B6B)))
             else -> Unit
         }
     }
@@ -468,12 +527,13 @@ private fun ModelDownloadRow(
 private fun VadSection(container: AppContainer) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
+    val str = LocalStrings.current
     var downloaded by remember { mutableStateOf(SileroVadModel.isDownloaded(context)) }
     var progress by remember { mutableStateOf<DownloadProgress?>(null) }
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
         Column(Modifier.weight(1f)) {
-            Text("Silero VAD", style = MaterialTheme.typography.bodyLarge.copy(color = Color.White))
-            Text(if (downloaded) "downloaded ✓" else "recommended for call mode · ~2 MB", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF9AA0AE)))
+            Text(str.sileroVad, style = MaterialTheme.typography.bodyLarge.copy(color = Color.White))
+            Text(if (downloaded) str.sileroVadDownloaded else str.sileroVadHint, style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF9AA0AE)))
         }
         if (!downloaded) {
             TextButton(
@@ -486,12 +546,12 @@ private fun VadSection(container: AppContainer) {
                         }
                     }
                 },
-            ) { Text("Download", color = Color.White) }
+            ) { Text(str.download, color = Color.White) }
         }
     }
     when (val p = progress) {
         is DownloadProgress.Downloading -> DownloadBar(p.bytesRead, p.totalBytes)
-        is DownloadProgress.Failed -> Text("Error: ${p.message}", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFFFF6B6B)))
+        is DownloadProgress.Failed -> Text("${str.downloadError}: ${p.message}", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFFFF6B6B)))
         else -> Unit
     }
 }

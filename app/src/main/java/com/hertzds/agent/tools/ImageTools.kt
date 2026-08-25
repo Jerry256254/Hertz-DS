@@ -82,12 +82,15 @@ class GenerateImageTool(private val http: OkHttpClient) : AgentTool {
 }
 
 /** OCR over a workspace file or an attachment URI. */
-class OcrTool(private val engine: OcrEngine) : AgentTool {
+class OcrTool(
+    private val engine: OcrEngine,
+    private val keys: com.hertzds.data.repo.ApiKeyRepository,
+) : AgentTool {
 
     override val name = "ocr_image"
     override val description =
-        "Extract text from an image using on-device OCR (falls back to Mistral OCR when configured). " +
-            "Accepts a workspace path or a content:// URI from an attachment."
+        "Extract text from an image using on-device OCR (falls back to DeepSeek's vision model when the " +
+            "local pass finds nothing). Accepts a workspace path or a content:// URI from an attachment."
     override val parameters = schema(
         "path" to stringProp("Workspace-relative image path, or a content:// / file:// URI."),
         required = listOf("path"),
@@ -107,7 +110,8 @@ class OcrTool(private val engine: OcrEngine) : AgentTool {
             }
         }
 
-        val result = engine.recognize(context.appContext, uri, context.settings.mistralOcrKey)
+        val deepSeekKey = keys.nextKey()?.secret
+        val result = engine.recognize(context.appContext, uri, deepSeekKey)
         return result.fold(
             onSuccess = { ocr ->
                 if (ocr.text.isBlank()) ToolResult("No text found in $path.")

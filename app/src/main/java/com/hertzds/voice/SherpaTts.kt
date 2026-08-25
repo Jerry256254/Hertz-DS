@@ -69,6 +69,24 @@ class SherpaTts private constructor(private val engine: OfflineTts) {
 /** Plays 16-bit PCM float samples as they arrive, for true streamed speech. */
 class StreamingPcmPlayer(sampleRate: Int) {
 
+    companion object {
+        /** Bytes per frame for mono 32-bit float PCM — AudioTrack rejects sizes not aligned to this. */
+        private const val FRAME_SIZE_BYTES = 4
+
+        /**
+         * getMinBufferSize can return ERROR (-1) or ERROR_BAD_VALUE (-2) on some OEM audio
+         * HALs for PCM_FLOAT at unusual sample rates; falling back to a fixed 1-second
+         * buffer keeps AudioTrack.Builder from ever seeing a negative or misaligned size
+         * (the concrete cause of the "invalid audio buffer size" crash).
+         */
+        private fun bufferSizeBytes(sampleRate: Int): Int {
+            val minBuffer = AudioTrack.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_FLOAT)
+            val base = if (minBuffer > 0) minBuffer * 2 else sampleRate * FRAME_SIZE_BYTES
+            val remainder = base % FRAME_SIZE_BYTES
+            return if (remainder == 0) base else base + (FRAME_SIZE_BYTES - remainder)
+        }
+    }
+
     private val track = AudioTrack.Builder()
         .setAudioAttributes(
             AudioAttributes.Builder()
@@ -84,10 +102,7 @@ class StreamingPcmPlayer(sampleRate: Int) {
                 .build(),
         )
         .setTransferMode(AudioTrack.MODE_STREAM)
-        .setBufferSizeInBytes(
-            (AudioTrack.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_FLOAT) * 2)
-                .coerceAtLeast(sampleRate),
-        )
+        .setBufferSizeInBytes(bufferSizeBytes(sampleRate))
         .build()
 
     fun start() = track.play()

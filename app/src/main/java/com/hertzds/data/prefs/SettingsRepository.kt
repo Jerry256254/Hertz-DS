@@ -8,7 +8,6 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
-import com.hertzds.core.crypto.SecretStore
 import com.hertzds.deepseek.Models
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -40,14 +39,10 @@ data class Settings(
     val memoryEnabled: Boolean = true,
     val webSearchEnabled: Boolean = true,
     val fileToolsEnabled: Boolean = true,
-    val mistralOcrKeyEncrypted: String? = null,
     val eulaAccepted: Boolean = false,
     val updateCheckEnabled: Boolean = true,
     val lastSeenVersion: String? = null,
 ) {
-    val mistralOcrKey: String?
-        get() = mistralOcrKeyEncrypted?.let { SecretStore.decrypt(it) }
-
     companion object {
         const val DEFAULT_SYSTEM_PROMPT =
             "You are Hertz-DS, a fully local agentic assistant running on the user's Android device. " +
@@ -79,7 +74,6 @@ class SettingsRepository(private val context: Context) {
         val MEMORY = booleanPreferencesKey("memory_enabled")
         val WEB_SEARCH = booleanPreferencesKey("web_search_enabled")
         val FILE_TOOLS = booleanPreferencesKey("file_tools_enabled")
-        val MISTRAL_KEY = stringPreferencesKey("mistral_ocr_key")
         val EULA = booleanPreferencesKey("eula_accepted")
         val UPDATE_CHECK = booleanPreferencesKey("update_check")
         val LAST_SEEN_VERSION = stringPreferencesKey("last_seen_version")
@@ -115,7 +109,6 @@ class SettingsRepository(private val context: Context) {
             memoryEnabled = this[Keys.MEMORY] ?: defaults.memoryEnabled,
             webSearchEnabled = this[Keys.WEB_SEARCH] ?: defaults.webSearchEnabled,
             fileToolsEnabled = this[Keys.FILE_TOOLS] ?: defaults.fileToolsEnabled,
-            mistralOcrKeyEncrypted = this[Keys.MISTRAL_KEY],
             eulaAccepted = this[Keys.EULA] ?: defaults.eulaAccepted,
             updateCheckEnabled = this[Keys.UPDATE_CHECK] ?: defaults.updateCheckEnabled,
             lastSeenVersion = this[Keys.LAST_SEEN_VERSION],
@@ -148,11 +141,6 @@ class SettingsRepository(private val context: Context) {
     suspend fun setEulaAccepted(value: Boolean) = put { it[Keys.EULA] = value }
     suspend fun setUpdateCheckEnabled(value: Boolean) = put { it[Keys.UPDATE_CHECK] = value }
     suspend fun setLastSeenVersion(value: String) = put { it[Keys.LAST_SEEN_VERSION] = value }
-
-    suspend fun setMistralOcrKey(plain: String?) = put {
-        if (plain.isNullOrBlank()) it.remove(Keys.MISTRAL_KEY)
-        else it[Keys.MISTRAL_KEY] = SecretStore.encrypt(plain.trim())
-    }
 
     private suspend fun put(block: (androidx.datastore.preferences.core.MutablePreferences) -> Unit) {
         context.dataStore.edit(block)

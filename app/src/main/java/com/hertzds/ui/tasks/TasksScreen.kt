@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hertzds.AppContainer
 import com.hertzds.ui.chat.WaveformMark
+import com.hertzds.ui.theme.LocalStrings
 import com.hertzds.ui.theme.hertzSemantic
 import kotlinx.coroutines.launch
 import java.time.Instant
@@ -46,6 +47,7 @@ fun TasksScreen(container: AppContainer, onBack: () -> Unit) {
     val tasks by container.database.scheduledTaskDao().observeAll()
         .collectAsStateWithLifecycle(initialValue = emptyList())
     val sem = hertzSemantic()
+    val str = LocalStrings.current
     val formatter = DateTimeFormatter.ofPattern("d.M. HH:mm")
 
     Column(
@@ -59,14 +61,14 @@ fun TasksScreen(container: AppContainer, onBack: () -> Unit) {
             modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp),
         ) {
             Icon(
-                Icons.Filled.Close, "Zavřít",
+                Icons.Filled.Close, str.closeAction,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier
                     .size(42.dp)
                     .clickable(onClick = onBack)
                     .padding(11.dp),
             )
-            Text("Naplánované úlohy", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+            Text(str.scheduledTasks, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
         }
 
         if (tasks.isEmpty()) {
@@ -77,13 +79,13 @@ fun TasksScreen(container: AppContainer, onBack: () -> Unit) {
             ) {
                 WaveformMark(sizeDp = 26)
                 Text(
-                    "Žádné úlohy",
+                    str.noTasks,
                     style = MaterialTheme.typography.headlineSmall,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                     modifier = Modifier.padding(top = 14.dp),
                 )
                 Text(
-                    "Řekni agentovi: „každé ráno v 7:30 mi shrň novinky“ —\nsám se naplánuje přes nástroj schedule_task.",
+                    str.noTasksHint,
                     style = MaterialTheme.typography.bodyMedium,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                     modifier = Modifier.padding(top = 6.dp),
@@ -111,8 +113,10 @@ fun TasksScreen(container: AppContainer, onBack: () -> Unit) {
                         Column(Modifier.weight(1f).padding(start = 10.dp)) {
                             Text(task.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text(
-                                "každých ${task.intervalMinutes} min · příští " +
+                                str.everyMinutesNext.format(
+                                    task.intervalMinutes,
                                     formatter.format(Instant.ofEpochMilli(task.nextRunAt).atZone(ZoneId.systemDefault())),
+                                ),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = hertzSemantic().faintText,
                                 modifier = Modifier.padding(top = 2.dp),

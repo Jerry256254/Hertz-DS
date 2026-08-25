@@ -52,6 +52,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.hertzds.AppContainer
 import com.hertzds.data.repo.KeyStatus
+import com.hertzds.ui.theme.LocalStrings
 import com.hertzds.ui.theme.hertzSemantic
 import kotlinx.coroutines.launch
 
@@ -62,6 +63,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun KeysScreen(container: AppContainer, onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
+    val str = LocalStrings.current
     var statuses by remember { mutableStateOf<List<KeyStatus>>(emptyList()) }
     var showAdd by rememberSaveable { mutableStateOf(false) }
     var topUpTarget by rememberSaveable { mutableStateOf<String?>(null) }
@@ -89,20 +91,20 @@ fun KeysScreen(container: AppContainer, onBack: () -> Unit) {
             modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp),
         ) {
             Icon(
-                Icons.Filled.Close, "Zavřít",
+                Icons.Filled.Close, str.closeAction,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier
                     .size(42.dp)
                     .clickable(onClick = onBack)
                     .padding(11.dp),
             )
-            Text("Klíče & kredity", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+            Text(str.keysAndCredits, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
             TextButton(onClick = {
                 scope.launch {
                     runCatching { container.keys.refreshAllBalances() }.onFailure { message = it.message }
                     statuses = container.keys.statuses()
                 }
-            }) { Text("Obnovit", color = MaterialTheme.colorScheme.primary) }
+            }) { Text(str.refresh, color = MaterialTheme.colorScheme.primary) }
         }
 
         LazyColumn(
@@ -117,7 +119,7 @@ fun KeysScreen(container: AppContainer, onBack: () -> Unit) {
                 val known = enabled.any { it.remainingUsd != null }
 
                 Column(Modifier.padding(top = 14.dp)) {
-                    Text("CELKEM K DISPOZICI", style = MaterialTheme.typography.labelSmall)
+                    Text(str.totalAvailable, style = MaterialTheme.typography.labelSmall)
                     Row(verticalAlignment = Alignment.Bottom) {
                         Text(
                             if (known) "$%.2f".format(total) else "—",
@@ -144,7 +146,7 @@ fun KeysScreen(container: AppContainer, onBack: () -> Unit) {
                         )
                     }
                     Text(
-                        "Klíče se řetězí: když jeden dojde (401/402/429), agent přejde na další.",
+                        str.keyChainHint,
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(top = 12.dp),
                     )
@@ -174,7 +176,7 @@ fun KeysScreen(container: AppContainer, onBack: () -> Unit) {
             if (statuses.isEmpty()) {
                 item {
                     Text(
-                        "Žádné klíče. Vezmi klíč z platform.deepseek.com —\nbez něj agent nemůže startovat.",
+                        str.noKeys,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -194,7 +196,7 @@ fun KeysScreen(container: AppContainer, onBack: () -> Unit) {
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp).height(48.dp),
                 ) {
                     Icon(Icons.Filled.Add, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(17.dp))
-                    Text("  Přidat klíč", color = MaterialTheme.colorScheme.primary)
+                    Text("  " + str.addKey, color = MaterialTheme.colorScheme.primary)
                 }
             }
         }
@@ -206,8 +208,8 @@ fun KeysScreen(container: AppContainer, onBack: () -> Unit) {
                 scope.launch {
                     container.keys.add(raw, label)
                         .onFailure { message = when (it.message) {
-                            "duplicate" -> "Tento klíč už je uložený."
-                            else -> it.message ?: "nepodařilo se přidat"
+                            "duplicate" -> str.duplicateKeyError
+                            else -> it.message
                         } }
                         .onSuccess { message = null; reloadNow() }
                 }
@@ -238,6 +240,7 @@ private fun KeyRow(
 ) {
     val entity = status.entity
     val sem = hertzSemantic()
+    val str = LocalStrings.current
 
     Column(
         Modifier
@@ -273,7 +276,7 @@ private fun KeyRow(
                 style = MaterialTheme.typography.headlineSmall.copy(color = sem.positive),
             )
             Text(
-                "  utraceno $%.4f".format(status.spentUsd),
+                "  ${str.spent} $%.4f".format(status.spentUsd),
                 style = MaterialTheme.typography.labelSmall,
                 color = sem.faintText,
                 modifier = Modifier.padding(bottom = 3.dp),
@@ -287,7 +290,7 @@ private fun KeyRow(
                 color = if (pct < 0.15f) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp).height(3.dp),
             )
-            Text("%.0f %% zbývá".format(pct * 100), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 5.dp))
+            Text(("%.0f " + str.percentRemaining).format(pct * 100), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 5.dp))
         }
 
         Row(modifier = Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -295,10 +298,10 @@ private fun KeyRow(
                 Text(it, style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
             }
             TextButton(onClick = onTopUp, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp)) {
-                Text("Dobít…", color = MaterialTheme.colorScheme.primary)
+                Text(str.topUp, color = MaterialTheme.colorScheme.primary)
             }
             Icon(
-                Icons.Filled.Close, "Smazat klíč",
+                Icons.Filled.Close, str.deleteKey,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                 modifier = Modifier
                     .size(30.dp)
@@ -308,7 +311,7 @@ private fun KeyRow(
         }
 
         if (status.inCooldown) {
-            Text("⏸ v cooldownu po chybě API", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+            Text(str.cooldownNotice, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
         }
         entity.lastError?.takeIf { !status.inCooldown }?.let {
             Text("⚠ ${it.take(70)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
@@ -321,14 +324,15 @@ private fun AddKeyDialog(onAdd: (String, String?) -> Unit, onDismiss: () -> Unit
     var raw by rememberSaveable { mutableStateOf("") }
     var label by rememberSaveable { mutableStateOf("") }
     val sem = hertzSemantic()
+    val str = LocalStrings.current
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(24.dp),
-        title = { Text("Přidat DeepSeek klíč", style = MaterialTheme.typography.headlineSmall) },
+        title = { Text(str.addDeepSeekKey, style = MaterialTheme.typography.headlineSmall) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                LabeledField("KLÍČ") {
+                LabeledField(str.keyLabel) {
                     OutlinedTextField(
                         raw, { raw = it }, singleLine = true,
                         visualTransformation = PasswordVisualTransformation(),
@@ -343,7 +347,7 @@ private fun AddKeyDialog(onAdd: (String, String?) -> Unit, onDismiss: () -> Unit
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
-                LabeledField("NÁZEV (VOLITELNÉ)") {
+                LabeledField(str.nameOptionalUpper) {
                     OutlinedTextField(
                         label, { label = it }, singleLine = true,
                         shape = RoundedCornerShape(12.dp),
@@ -356,7 +360,7 @@ private fun AddKeyDialog(onAdd: (String, String?) -> Unit, onDismiss: () -> Unit
                     )
                 }
                 Text(
-                    "Klíč je šifrovaný přes Android Keystore; plaintext nikdy neuložíme.",
+                    str.keyEncryptedNotice,
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
@@ -366,9 +370,9 @@ private fun AddKeyDialog(onAdd: (String, String?) -> Unit, onDismiss: () -> Unit
                 onClick = { onAdd(raw, label.ifBlank { null }) },
                 enabled = raw.isNotBlank(),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-            ) { Text("Uložit", color = MaterialTheme.colorScheme.primary) }
+            ) { Text(str.save, color = MaterialTheme.colorScheme.primary) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Zrušit") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(str.cancel) } },
     )
 }
 
@@ -383,20 +387,21 @@ private fun LabeledField(label: String, content: @Composable () -> Unit) {
 @Composable
 private fun TopUpDialog(current: Double?, onSave: (Double?) -> Unit, onDismiss: () -> Unit) {
     var text by rememberSaveable { mutableStateOf(current?.toString().orEmpty()) }
+    val str = LocalStrings.current
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(24.dp),
-        title = { Text("Manuální dobití", style = MaterialTheme.typography.headlineSmall) },
+        title = { Text(str.manualTopUpTitle, style = MaterialTheme.typography.headlineSmall) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
-                    "Kolik $ má klíč celkem? Aplikace odečítá lokální spotřebu, když se nedozví zůstatek od DeepSeek.",
+                    str.manualTopUpHint,
                     style = MaterialTheme.typography.bodySmall,
                 )
                 OutlinedTextField(
                     text, { text = it },
-                    label = { Text("Částka v USD") },
+                    label = { Text(str.amountUsd) },
                     singleLine = true,
                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     shape = RoundedCornerShape(12.dp),
@@ -406,9 +411,9 @@ private fun TopUpDialog(current: Double?, onSave: (Double?) -> Unit, onDismiss: 
         },
         confirmButton = {
             TextButton({ onSave(text.replace(",", ".").toDoubleOrNull()) }) {
-                Text(if (text.isBlank()) "Vymazat" else "Uložit", color = MaterialTheme.colorScheme.primary)
+                Text(if (text.isBlank()) str.clear else str.save, color = MaterialTheme.colorScheme.primary)
             }
         },
-        dismissButton = { TextButton(onDismiss) { Text("Zrušit") } },
+        dismissButton = { TextButton(onDismiss) { Text(str.cancel) } },
     )
 }

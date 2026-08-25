@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hertzds.AppContainer
 import com.hertzds.ui.chat.WaveformMark
+import com.hertzds.ui.theme.LocalStrings
 import com.hertzds.ui.theme.hertzSemantic
 import kotlinx.coroutines.launch
 
@@ -52,6 +53,7 @@ fun MemoryScreen(container: AppContainer, onBack: () -> Unit) {
     var showAdd by rememberSaveable { mutableStateOf(false) }
     var editTarget by rememberSaveable { mutableStateOf<String?>(null) }
     val sem = hertzSemantic()
+    val str = LocalStrings.current
 
     Column(
         Modifier
@@ -64,16 +66,16 @@ fun MemoryScreen(container: AppContainer, onBack: () -> Unit) {
             modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp),
         ) {
             Icon(
-                Icons.Filled.Close, "Zavřít",
+                Icons.Filled.Close, str.closeAction,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier
                     .size(42.dp)
                     .clickable(onClick = onBack)
                     .padding(11.dp),
             )
-            Text("Paměť agenta", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+            Text(str.agentMemory, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
             Icon(
-                Icons.Filled.Add, "Nová vzpomínka",
+                Icons.Filled.Add, str.newMemory,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier
                     .size(42.dp)
@@ -90,13 +92,13 @@ fun MemoryScreen(container: AppContainer, onBack: () -> Unit) {
             ) {
                 WaveformMark(sizeDp = 26)
                 Text(
-                    "Agent si zatím nic nepamatuje",
+                    str.noMemoriesYet,
                     style = MaterialTheme.typography.headlineSmall,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                     modifier = Modifier.padding(top = 14.dp),
                 )
                 Text(
-                    "Sám si ukládá fakta přes nástroj remember.\nNebo je přidej ručně tlačítkem +.",
+                    str.noMemoriesHint,
                     style = MaterialTheme.typography.bodyMedium,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                     modifier = Modifier.padding(top = 6.dp),
@@ -133,7 +135,7 @@ fun MemoryScreen(container: AppContainer, onBack: () -> Unit) {
                             modifier = Modifier.weight(1f).padding(start = 10.dp),
                         )
                         Text(
-                            if (memory.pinned) "PIN" else "PIN",
+                            str.pin,
                             style = MaterialTheme.typography.labelSmall,
                             color = if (memory.pinned) MaterialTheme.colorScheme.primary else hertzSemantic().faintText,
                             modifier = Modifier
@@ -187,16 +189,17 @@ private fun MemoryDialog(
     var title by rememberSaveable { mutableStateOf(initialTitle.orEmpty()) }
     var content by rememberSaveable { mutableStateOf(initialContent.orEmpty()) }
     val sem = hertzSemantic()
+    val str = LocalStrings.current
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(24.dp),
-        title = { Text(if (initialTitle == null) "Nová vzpomínka" else "Upravit", style = MaterialTheme.typography.headlineSmall) },
+        title = { Text(if (initialTitle == null) str.newMemory else str.editMemory, style = MaterialTheme.typography.headlineSmall) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
                     title, { title = it }, singleLine = true,
-                    placeholder = { Text("Nadpis") },
+                    placeholder = { Text(str.title) },
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         unfocusedBorderColor = sem.hairline,
@@ -207,7 +210,7 @@ private fun MemoryDialog(
                 )
                 OutlinedTextField(
                     content, { content = it }, minLines = 3, maxLines = 10,
-                    placeholder = { Text("Obsah…") },
+                    placeholder = { Text(str.content) },
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         unfocusedBorderColor = sem.hairline,
@@ -220,9 +223,9 @@ private fun MemoryDialog(
         },
         confirmButton = {
             TextButton(enabled = title.isNotBlank() && content.isNotBlank(), onClick = { onSave(title, content) }) {
-                Text("Uložit", color = MaterialTheme.colorScheme.primary)
+                Text(str.save, color = MaterialTheme.colorScheme.primary)
             }
         },
-        dismissButton = { TextButton(onDismiss) { Text("Zrušit") } },
+        dismissButton = { TextButton(onDismiss) { Text(str.cancel) } },
     )
 }

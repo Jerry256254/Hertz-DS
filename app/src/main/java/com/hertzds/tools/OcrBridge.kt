@@ -8,7 +8,7 @@ import okhttp3.OkHttpClient
 
 /**
  * Prepares user attachments before a turn: images go through OCR (ML Kit, with
- * optional Mistral fallback), plain-text documents are read straight from disk.
+ * a DeepSeek vision fallback), plain-text documents are read straight from disk.
  */
 object OcrBridge {
 
@@ -17,11 +17,11 @@ object OcrBridge {
         context: Context,
         uri: Uri,
         attachment: AttachmentEntity,
-        mistralKey: String?,
+        deepSeekKey: String?,
     ): String? = try {
         when (attachment.kind) {
             "image" -> OcrEngine(http, kotlinx.serialization.json.Json { ignoreUnknownKeys = true })
-                .recognize(context, uri, mistralKey)
+                .recognize(context, uri, deepSeekKey)
                 .getOrNull()
                 ?.text
 

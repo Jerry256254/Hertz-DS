@@ -35,6 +35,7 @@ import com.hertzds.R
 import com.hertzds.data.db.AttachmentEntity
 import com.hertzds.data.db.ChatEntity
 import com.hertzds.deepseek.Models
+import com.hertzds.ui.theme.LocalStrings
 
 // ── Composer V2 — two rows, gently squared, pure black/white system ──
 
@@ -57,6 +58,7 @@ fun ComposerV2(
 ) {
     var draft by rememberSaveable { mutableStateOf("") }
     val haptics = LocalHapticFeedback.current
+    val str = LocalStrings.current
 
     // When dictation produces a partial, keep it visible but don't auto-insert yet
     var dictationBuffer by rememberSaveable { mutableStateOf("") }
@@ -117,7 +119,7 @@ fun ComposerV2(
                         modifier = Modifier.fillMaxWidth(),
                         placeholder = {
                             Text(
-                                "Ask anything…",
+                                str.askAnything,
                                 style = MaterialTheme.typography.bodyLarge.copy(color = Color(0xFF6B7280)),
                             )
                         },
@@ -197,7 +199,7 @@ fun ComposerV2(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Icon(Icons.Filled.Stop, null, tint = Color.Black, modifier = Modifier.size(16.dp))
-                                    Text(" Stop", style = MaterialTheme.typography.labelMedium.copy(color = Color.Black))
+                                    Text(" " + str.stop, style = MaterialTheme.typography.labelMedium.copy(color = Color.Black))
                                 }
                             }
                         } else if (draft.isBlank() && enabled) {
@@ -208,7 +210,7 @@ fun ComposerV2(
                                 modifier = Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).clickable { onStartDictation() }
                             ) {
                                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                    Icon(painterResource(R.drawable.ic_custom_mic), "Dictate", tint = Color.White, modifier = Modifier.size(20.dp))
+                                    Icon(painterResource(R.drawable.ic_custom_mic), str.dictate, tint = Color.White, modifier = Modifier.size(20.dp))
                                 }
                             }
                             Surface(
@@ -220,7 +222,7 @@ fun ComposerV2(
                                 }
                             ) {
                                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                    Icon(Icons.Filled.Phone, "Call", tint = Color.Black, modifier = Modifier.size(18.dp))
+                                    Icon(Icons.Filled.Phone, str.call, tint = Color.Black, modifier = Modifier.size(18.dp))
                                 }
                             }
                         } else {
@@ -244,7 +246,7 @@ fun ComposerV2(
                             ) {
                                 Box(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), contentAlignment = Alignment.Center) {
                                     if (running) Icon(Icons.Filled.Stop, "Stop", tint = fg, modifier = Modifier.size(18.dp))
-                                    else Text("Send", style = MaterialTheme.typography.labelMedium.copy(color = fg))
+                                    else Text(str.send, style = MaterialTheme.typography.labelMedium.copy(color = fg))
                                 }
                             }
                         }
@@ -265,6 +267,7 @@ fun CallControls(
     modifier: Modifier = Modifier
 ) {
     val haptics = LocalHapticFeedback.current
+    val str = LocalStrings.current
     Surface(
         shape = RoundedCornerShape(16.dp),
         color = Color(0xFF1C1E22),
@@ -282,9 +285,9 @@ fun CallControls(
                     Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)).background(if (isMuted) Color.White else Color(0xFF2A2E36)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(painterResource(R.drawable.ic_custom_mic), "Mute", tint = if (isMuted) Color.Black else Color.White, modifier = Modifier.size(22.dp))
+                    Icon(painterResource(R.drawable.ic_custom_mic), str.mute, tint = if (isMuted) Color.Black else Color.White, modifier = Modifier.size(22.dp))
                 }
-                Text(if (isMuted) "Unmute" else "Mute", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF9AA0AE)), modifier = Modifier.padding(top = 6.dp))
+                Text(if (isMuted) str.unmute else str.mute, style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF9AA0AE)), modifier = Modifier.padding(top = 6.dp))
             }
             // Pause
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove); onPause(!isPaused) }) {
@@ -292,9 +295,9 @@ fun CallControls(
                     Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF2A2E36)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(if (isPaused) Icons.Filled.Mic else Icons.Filled.Pause, if (isPaused) "Resume" else "Pause", tint = Color.White, modifier = Modifier.size(22.dp))
+                    Icon(if (isPaused) Icons.Filled.Mic else Icons.Filled.Pause, if (isPaused) str.resume else str.pause, tint = Color.White, modifier = Modifier.size(22.dp))
                 }
-                Text(if (isPaused) "Resume" else "Pause", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF9AA0AE)), modifier = Modifier.padding(top = 6.dp))
+                Text(if (isPaused) str.resume else str.pause, style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF9AA0AE)), modifier = Modifier.padding(top = 6.dp))
             }
             // End — red
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { haptics.performHapticFeedback(HapticFeedbackType.LongPress); onEnd() }) {
@@ -302,9 +305,9 @@ fun CallControls(
                     Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFFFF3B30)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Filled.Close, "End", tint = Color.White, modifier = Modifier.size(22.dp))
+                    Icon(Icons.Filled.Close, str.end, tint = Color.White, modifier = Modifier.size(22.dp))
                 }
-                Text("End", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF9AA0AE)), modifier = Modifier.padding(top = 6.dp))
+                Text(str.end, style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF9AA0AE)), modifier = Modifier.padding(top = 6.dp))
             }
         }
     }
@@ -355,6 +358,7 @@ fun GhostChatDrawer(
     onOpenSettings: () -> Unit,
 ) {
     val haptics = LocalHapticFeedback.current
+    val str = LocalStrings.current
     Column(Modifier.fillMaxWidth().background(Color(0xFF000000))) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 22.dp, vertical = 24.dp)) {
             WaveformMark()
@@ -369,10 +373,10 @@ fun GhostChatDrawer(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.Add, null, tint = Color.Black, modifier = Modifier.size(18.dp))
-                Text("New ghost chat", style = MaterialTheme.typography.titleMedium.copy(color = Color.Black), modifier = Modifier.padding(start = 9.dp))
+                Text(str.newGhostChat, style = MaterialTheme.typography.titleMedium.copy(color = Color.Black), modifier = Modifier.padding(start = 9.dp))
             }
         }
-        Text("CONVERSATIONS · ${chats.size}", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6B7280)), modifier = Modifier.padding(start = 22.dp, top = 20.dp, bottom = 6.dp))
+        Text("${str.conversations} · ${chats.size}", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6B7280)), modifier = Modifier.padding(start = 22.dp, top = 20.dp, bottom = 6.dp))
         LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 8.dp)) {
             items(chats, key = { it.id }) { chat ->
                 val active = chat.id == currentId
@@ -413,10 +417,10 @@ fun GhostChatDrawer(
                 .clickable { onOpenKeys() }.padding(horizontal = 16.dp, vertical = 13.dp),
         ) {
             Column(Modifier.weight(1f)) {
-                Text("CREDITS", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6B7280)))
+                Text(str.credits, style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6B7280)))
                 Text(remainingUsd?.let { "$%.2f".format(it) } ?: "—", style = MaterialTheme.typography.titleLarge.copy(color = Color.White))
             }
-            TextButton(onClick = onOpenKeys) { Text("Manage", color = Color.White) }
+            TextButton(onClick = onOpenKeys) { Text(str.manage, color = Color.White) }
             Box(
                 Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF2A2E36)).clickable { onOpenSettings() },
                 contentAlignment = Alignment.Center
@@ -437,17 +441,19 @@ fun NewGhostDialog(
     var title by rememberSaveable { mutableStateOf("") }
     var prompt by rememberSaveable { mutableStateOf("") }
     var model by rememberSaveable { mutableStateOf(models.first()) }
-    HertzDialog(title = "New ghost chat", dismissLabel = "Cancel", confirmLabel = "Create", onDismiss = onDismiss, onConfirm = { onCreate(title, model, prompt) }) {
-        DialogField(title, { title = it }, "Name (optional)", singleLine = true)
+    val str = LocalStrings.current
+    HertzDialog(title = str.newGhostChat, dismissLabel = str.cancel, confirmLabel = str.create, onDismiss = onDismiss, onConfirm = { onCreate(title, model, prompt) }) {
+        DialogField(title, { title = it }, str.nameOptional, singleLine = true)
         ModelDropdown(selected = model, models = models, onSelect = { model = it })
-        DialogField(prompt, { prompt = it }, "System prompt (optional)", minLines = 3, maxLines = 6)
+        DialogField(prompt, { prompt = it }, str.systemPromptOptional, minLines = 3, maxLines = 6)
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ModelPickerDialog(selected: String, onSelect: (String) -> Unit, onDismiss: () -> Unit) {
-    HertzDialog(title = "Model", dismissLabel = "Close", confirmLabel = "", onDismiss = onDismiss, onConfirm = {}) {
+    val str = LocalStrings.current
+    HertzDialog(title = str.model, dismissLabel = str.close, confirmLabel = "", onDismiss = onDismiss, onConfirm = {}) {
         Models.ALL.forEach { id ->
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -458,9 +464,9 @@ fun ModelPickerDialog(selected: String, onSelect: (String) -> Unit, onDismiss: (
                     Text(Models.label(id), style = MaterialTheme.typography.titleMedium.copy(color = Color.White))
                     Text(
                         when (id) {
-                            Models.PRO -> "Most accurate · higher price"
-                            Models.VISION -> "Understands images"
-                            else -> "Fast · cheapest"
+                            Models.PRO -> str.modelProDesc
+                            Models.VISION -> str.modelVisionDesc
+                            else -> str.modelFlashDesc
                         }, style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF9AA0AE))
                     )
                 }
@@ -497,8 +503,9 @@ private fun ModelDropdown(selected: String, models: List<String>, onSelect: (Str
 @Composable
 fun RenameDialog(initial: String, onRename: (String) -> Unit, onDismiss: () -> Unit) {
     var value by rememberSaveable { mutableStateOf(initial) }
-    HertzDialog(title = "Rename chat", dismissLabel = "Cancel", confirmLabel = "Save", onDismiss = onDismiss, onConfirm = { onRename(value) }) {
-        DialogField(value, { value = it }, "Name", singleLine = true)
+    val str = LocalStrings.current
+    HertzDialog(title = str.renameChat, dismissLabel = str.cancel, confirmLabel = str.save, onDismiss = onDismiss, onConfirm = { onRename(value) }) {
+        DialogField(value, { value = it }, str.name, singleLine = true)
     }
 }
 

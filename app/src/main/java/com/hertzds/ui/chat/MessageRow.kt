@@ -9,7 +9,12 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -34,14 +39,22 @@ import androidx.compose.ui.unit.sp
 import com.hertzds.data.db.MessageEntity
 import com.hertzds.data.repo.MessageRole
 import com.hertzds.data.repo.MessageStatus
+import com.hertzds.ui.theme.LocalStrings
 import com.hertzds.ui.theme.hertzSemantic
+import kotlinx.coroutines.delay
 
 @Composable
-fun MessageRow(message: MessageEntity, isCallMode: Boolean = false, modifier: Modifier = Modifier) {
+fun MessageRow(
+    message: MessageEntity,
+    isCallMode: Boolean = false,
+    isReading: Boolean = false,
+    onToggleReadAloud: () -> Unit = {},
+    modifier: Modifier = Modifier,
+) {
     when (message.role) {
         MessageRole.TOOL -> ToolRailEntry(message, modifier)
         MessageRole.USER -> UserBubble(message, modifier)
-        else -> AssistantBlock(message, isCallMode, modifier)
+        else -> AssistantBlock(message, isCallMode, isReading, onToggleReadAloud, modifier)
     }
 }
 
@@ -67,9 +80,23 @@ private fun UserBubble(message: MessageEntity, modifier: Modifier) {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun AssistantBlock(message: MessageEntity, isCallMode: Boolean, modifier: Modifier) {
+private fun AssistantBlock(
+    message: MessageEntity,
+    isCallMode: Boolean,
+    isReading: Boolean,
+    onToggleReadAloud: () -> Unit,
+    modifier: Modifier,
+) {
+    val str = LocalStrings.current
     val clipboard = LocalClipboardManager.current
     val streaming = message.status == MessageStatus.STREAMING
+    var justCopied by remember { mutableStateOf(false) }
+    LaunchedEffect(justCopied) {
+        if (justCopied) {
+            delay(1400)
+            justCopied = false
+        }
+    }
 
     Column(
         modifier.fillMaxWidth().animateContentSize()
@@ -77,7 +104,12 @@ private fun AssistantBlock(message: MessageEntity, isCallMode: Boolean, modifier
                 interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
                 indication = null,
                 onClick = {},
-                onLongClick = { if (message.content.isNotBlank()) clipboard.setText(AnnotatedString(message.content)) },
+                onLongClick = {
+                    if (message.content.isNotBlank()) {
+                        clipboard.setText(AnnotatedString(message.content))
+                        justCopied = true
+                    }
+                },
             ),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -111,14 +143,50 @@ private fun AssistantBlock(message: MessageEntity, isCallMode: Boolean, modifier
                 if (message.peakPricing) append(" peak")
             }
             when (message.status) {
-                MessageStatus.ERROR -> append(if (isEmpty()) "error" else "  ·  error")
-                MessageStatus.CANCELLED -> append(if (isEmpty()) "cancelled" else "  ·  cancelled")
+                MessageStatus.ERROR -> append(if (isEmpty()) str.error else "  ·  ${str.error}")
+                MessageStatus.CANCELLED -> append(if (isEmpty()) str.cancelled else "  ·  ${str.cancelled}")
                 else -> Unit
             }
         }
         if (meta.isNotBlank()) {
             Text(meta, style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6B7280)), modifier = Modifier.padding(top = 7.dp))
         }
+
+        if (!isCallMode && !streaming && message.content.isNotBlank()) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
+                MessageActionButton(
+                    icon = if (justCopied) null else Icons.Filled.ContentCopy,
+                    label = if (justCopied) str.copied else str.copy,
+                    onClick = {
+                        clipboard.setText(AnnotatedString(message.content))
+                        justCopied = true
+                    },
+                )
+                Spacer(Modifier.width(6.dp))
+                MessageActionButton(
+                    icon = if (isReading) Icons.Filled.Stop else Icons.Filled.VolumeUp,
+                    label = if (isReading) str.stopReading else str.readAloud,
+                    onClick = onToggleReadAloud,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MessageActionButton(icon: androidx.compose.ui.graphics.vector.ImageVector?, label: String, onClick: () -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .clip(RoundedCornerShape(10.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 5.dp),
+    ) {
+        icon?.let {
+            Icon(it, null, tint = Color(0xFF9AA0AE), modifier = Modifier.size(14.dp))
+            Spacer(Modifier.width(5.dp))
+        }
+        Text(label, style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF9AA0AE)))
     }
 }
 
@@ -176,10 +244,11 @@ private fun ToolRailEntry(message: MessageEntity, modifier: Modifier) {
 @Composable
 private fun ReasoningDisclosure(reasoning: String, modifier: Modifier = Modifier) {
     var expanded by rememberSaveable { mutableStateOf(false) }
+    val str = LocalStrings.current
     Column(modifier.animateContentSize()) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { expanded = !expanded }.padding(vertical = 2.dp)) {
             Box(Modifier.size(4.dp).background(Color(0xFF6B7280), androidx.compose.foundation.shape.CircleShape))
-            Text("inside head", style = MaterialTheme.typography.labelSmall.copy(fontStyle = FontStyle.Italic, color = Color(0xFF6B7280)), modifier = Modifier.padding(start = 7.dp))
+            Text(str.insideHead, style = MaterialTheme.typography.labelSmall.copy(fontStyle = FontStyle.Italic, color = Color(0xFF6B7280)), modifier = Modifier.padding(start = 7.dp))
         }
         if (expanded) {
             Box(

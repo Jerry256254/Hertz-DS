@@ -103,7 +103,7 @@ class AppContainer(private val app: Application) {
                 DeleteFileTool(),
                 MakeDirTool(),
                 SearchFilesTool(),
-                OcrTool(OcrEngine(http, json)),
+                OcrTool(OcrEngine(http, json), keys),
                 GenerateImageTool(http),
                 RememberTool(memories),
                 RecallTool(memories),

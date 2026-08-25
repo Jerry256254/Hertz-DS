@@ -36,6 +36,8 @@ import com.hertzds.ui.memory.MemoryScreen
 import com.hertzds.ui.settings.SettingsScreen
 import com.hertzds.ui.tasks.TasksScreen
 import com.hertzds.ui.theme.HertzTheme
+import com.hertzds.ui.theme.LocalStrings
+import com.hertzds.ui.theme.Strings
 import kotlinx.coroutines.launch
 
 class MainVm(val container: AppContainer) : ViewModel()
@@ -57,15 +59,18 @@ class MainActivity : ComponentActivity() {
             val settings by container.settings.settings.collectAsStateWithLifecycle(initialValue = null)
 
             HertzTheme(settings?.themeMode ?: com.hertzds.data.prefs.ThemeMode.DARK) {
-                Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    settings?.let { s ->
-                        if (s.eulaAccepted) {
-                            AppRoot(container)
-                        } else {
-                            EulaGate(
-                                onAccept = { lifecycleScope.launch { container.settings.setEulaAccepted(true) } },
-                                onDecline = { finish() },
-                            )
+                val strings = settings?.language?.let { Strings.resolve(it) } ?: Strings.EN
+                androidx.compose.runtime.CompositionLocalProvider(LocalStrings provides strings) {
+                    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                        settings?.let { s ->
+                            if (s.eulaAccepted) {
+                                AppRoot(container)
+                            } else {
+                                EulaGate(
+                                    onAccept = { lifecycleScope.launch { container.settings.setEulaAccepted(true) } },
+                                    onDecline = { finish() },
+                                )
+                            }
                         }
                     }
                 }
@@ -94,7 +99,13 @@ private fun AppRoot(container: AppContainer) {
             )
         }
         composable("keys") { KeysScreen(container, onBack = { navController.popBackStack() }) }
-        composable("settings") { SettingsScreen(container, onBack = { navController.popBackStack() }) }
+        composable("settings") {
+            SettingsScreen(
+                container,
+                onBack = { navController.popBackStack() },
+                onOpenKeys = { navController.navigate("keys") },
+            )
+        }
         composable("memory") { MemoryScreen(container, onBack = { navController.popBackStack() }) }
         composable("tasks") { TasksScreen(container, onBack = { navController.popBackStack() }) }
     }
@@ -110,26 +121,21 @@ private fun viewModelFactory(container: AppContainer): androidx.lifecycle.ViewMo
 /** First-run consent: everything stays local; only model calls leave the device. */
 @Composable
 private fun EulaGate(onAccept: () -> Unit, onDecline: () -> Unit) {
+    val str = LocalStrings.current
     AlertDialog(
         onDismissRequest = {},
         containerColor = androidx.compose.ui.graphics.Color(0xFF111214),
         shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-        title = { Text("Welcome to Hertz-DS", textAlign = TextAlign.Center, color = androidx.compose.ui.graphics.Color.White) },
+        title = { Text(str.welcomeTitle, textAlign = TextAlign.Center, color = androidx.compose.ui.graphics.Color.White) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 Text(
-                    "Local agentic assistant powered by DeepSeek.\n\n" +
-                        "• All data (chats, memory, files, keys) stays on this device only.\n" +
-                        "• No account, no telemetry, no cloud.\n" +
-                        "• Requests go directly to api.deepseek.com under your own API key\n" +
-                        "  and are billed from your credits.\n" +
-                        "• Agent tools may access the internet and the app's workspace folder.\n\n" +
-                        "By continuing you agree to this processing model.",
+                    str.welcomeBody,
                     style = MaterialTheme.typography.bodySmall.copy(color = androidx.compose.ui.graphics.Color(0xFF9AA0AE)),
                 )
             }
         },
-        confirmButton = { TextButton(onClick = onAccept) { Text("Agree", color = androidx.compose.ui.graphics.Color.White) } },
-        dismissButton = { TextButton(onClick = onDecline) { Text("Exit", color = androidx.compose.ui.graphics.Color(0xFF9AA0AE)) } },
+        confirmButton = { TextButton(onClick = onAccept) { Text(str.agree, color = androidx.compose.ui.graphics.Color.White) } },
+        dismissButton = { TextButton(onClick = onDecline) { Text(str.exit, color = androidx.compose.ui.graphics.Color(0xFF9AA0AE)) } },
     )
 }
