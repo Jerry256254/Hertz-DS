@@ -4,35 +4,34 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Cloud body — soft, friendly, pure white on black -->
+    <!-- Friendly shark — a DeepSeek pun. Built from an ellipse + triangles, not a
+         single freehand blob, so the silhouette stays clean at every size. -->
+    <!-- Tail fin -->
     <path
         android:fillColor="#FFFFFFFF"
-        android:pathData="M 28,62 
-                         C 18,62 14,54 16,48
-                         C 12,38 20,30 28,30
-                         C 32,20 44,16 52,22
-                         C 60,12 74,14 80,24
-                         C 90,24 96,34 94,46
-                         C 98,54 92,64 82,64
-                         L 32,64
-                         C 22,64 20,62 28,62 Z" />
-    <!-- Eyes — tiny, friendly -->
+        android:pathData="M68,46 L84,36 L74,54 L84,74 L68,62 Z" />
+    <!-- Body -->
     <path
-        android:fillColor="#FF000000"
-        android:pathData="M 42,42 m -3.2,0 a 3.2,3.2 0 1,1 6.4,0 a 3.2,3.2 0 1,1 -6.4,0
-                         M 62,42 m -3.2,0 a 3.2,3.2 0 1,1 6.4,0 a 3.2,3.2 0 1,1 -6.4,0" />
-    <!-- Smile — warm, slightly open. Stroke only: a fillColor here would also
-         fill the implicit closing edge of this open curve, thickening it into
-         an unwanted crescent instead of a clean line. -->
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M26,54 A22,10 0 1 0 70,54 A22,10 0 1 0 26,54 Z" />
+    <!-- Dorsal fin -->
     <path
-        android:strokeColor="#FF000000"
-        android:strokeWidth="2.8"
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M40,48 L50,30 L58,49 Z" />
+    <!-- Pectoral fin -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M44,64 L34,78 L54,68 Z" />
+    <!-- Eye -->
+    <path
+        android:fillColor="#FF0A0E1C"
+        android:pathData="M32,50 m-2.6,0 a2.6,2.6 0 1,1 5.2,0 a2.6,2.6 0 1,1 -5.2,0" />
+    <!-- Smile — stroke only; a fillColor here would also fill the curve's
+         implicit closing edge, thickening it into an unwanted crescent. -->
+    <path
+        android:strokeColor="#FF0A0E1C"
+        android:strokeWidth="2.6"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
-        android:pathData="M 42,53 Q 53,62 64,53" />
-    <!-- Cheeks — subtle hint of blush (very light gray, almost white) -->
-    <path
-        android:fillColor="#FFFFE4E8"
-        android:pathData="M 32,48 m -2.2,0 a 2.2,1.4 0 1,1 4.4,0 a 2.2,1.4 0 1,1 -4.4,0
-                         M 72,48 m -2.2,0 a 2.2,1.4 0 1,1 4.4,0 a 2.2,1.4 0 1,1 -4.4,0" />
+        android:pathData="M26,58 Q34,63 42,58" />
 </vector>

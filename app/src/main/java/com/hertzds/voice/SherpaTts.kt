@@ -33,9 +33,13 @@ class SherpaTts private constructor(private val engine: OfflineTts) {
     fun release() = engine.release()
 
     companion object {
+        /** Below this, an .onnx file is a truncated/failed download, not a real model. */
+        private const val MIN_MODEL_BYTES = 1_000_000L
+
         /** Locates the model files inside an extracted Piper voice folder. */
         fun load(voiceDir: File): SherpaTts? {
             val onnx = voiceDir.listFiles { f -> f.extension == "onnx" }?.firstOrNull() ?: return null
+            if (onnx.length() < MIN_MODEL_BYTES) return null
             val tokens = File(voiceDir, "tokens.txt").takeIf { it.exists() } ?: return null
             val dataDir = File(voiceDir, "espeak-ng-data").takeIf { it.exists() }?.path.orEmpty()
 

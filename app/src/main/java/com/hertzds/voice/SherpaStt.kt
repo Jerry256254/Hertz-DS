@@ -27,11 +27,14 @@ class SherpaStt private constructor(private val recognizer: OfflineRecognizer) {
     fun release() = recognizer.release()
 
     companion object {
+        /** Below this, an .onnx file is a truncated/failed download, not a real model. */
+        private const val MIN_MODEL_BYTES = 1_000_000L
+
         fun load(modelDir: File): SherpaStt? {
             val encoder = modelDir.listFiles { f -> f.name.contains("encoder") && f.extension == "onnx" }
-                ?.firstOrNull() ?: return null
+                ?.firstOrNull()?.takeIf { it.length() >= MIN_MODEL_BYTES } ?: return null
             val decoder = modelDir.listFiles { f -> f.name.contains("decoder") && f.extension == "onnx" }
-                ?.firstOrNull() ?: return null
+                ?.firstOrNull()?.takeIf { it.length() >= MIN_MODEL_BYTES } ?: return null
             val tokens = modelDir.listFiles { f -> f.name.contains("tokens") && f.extension == "txt" }
                 ?.firstOrNull() ?: return null
 

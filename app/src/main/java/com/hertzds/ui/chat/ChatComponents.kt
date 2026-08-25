@@ -42,6 +42,7 @@ import com.hertzds.R
 import com.hertzds.data.db.AttachmentEntity
 import com.hertzds.data.db.ChatEntity
 import com.hertzds.deepseek.Models
+import com.hertzds.ui.theme.HertzPalette
 import com.hertzds.ui.theme.LocalStrings
 
 // ── Composer V2 — two rows, gently squared, pure black/white system ──
@@ -82,8 +83,8 @@ fun ComposerV2(
                 pendingAttachments.take(4).forEach { attachment ->
                     Surface(
                         shape = RoundedCornerShape(12.dp),
-                        color = Color(0xFF1C1E22),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2A2E36)),
+                        color = Color(0xFF1A2140),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2C355C)),
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -100,7 +101,7 @@ fun ComposerV2(
                             Text(attachment.name, style = MaterialTheme.typography.labelSmall.copy(color = Color.White), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 7.dp).width(84.dp))
                             Icon(
                                 Icons.Filled.Close, "Remove",
-                                tint = Color(0xFF9AA0AE),
+                                tint = Color(0xFFA3ABD1),
                                 modifier = Modifier.size(16.dp).clip(RoundedCornerShape(8.dp)).clickable { onRemoveAttachment(attachment.id) }.padding(2.dp),
                             )
                         }
@@ -114,8 +115,8 @@ fun ComposerV2(
 
         Surface(
             shape = RoundedCornerShape(16.dp),
-            color = Color(0xFF1C1E22),
-            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2A2E36)),
+            color = Color(0xFF1A2140),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2C355C)),
         ) {
             Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
                 // Row 1 — expanding text
@@ -127,10 +128,10 @@ fun ComposerV2(
                         placeholder = {
                             Text(
                                 str.askAnything,
-                                style = MaterialTheme.typography.bodyLarge.copy(color = Color(0xFF6B7280)),
+                                style = MaterialTheme.typography.bodyLarge.copy(color = Color(0xFF6C74A0)),
                             )
                         },
-                        textStyle = MaterialTheme.typography.bodyLarge.copy(color = Color(0xFFECEFF3)),
+                        textStyle = MaterialTheme.typography.bodyLarge.copy(color = Color(0xFFE7EAFB)),
                         maxLines = 8,
                         minLines = 1,
                         readOnly = isDictating,
@@ -160,7 +161,7 @@ fun ComposerV2(
                         // Attach
                         Surface(
                             shape = RoundedCornerShape(12.dp),
-                            color = Color(0xFF25282E),
+                            color = Color(0xFF242C52),
                             modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable(enabled = enabled) {
                                 haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 onAttach()
@@ -175,7 +176,7 @@ fun ComposerV2(
                         // Model pill — gently squared
                         Surface(
                             shape = RoundedCornerShape(12.dp),
-                            color = Color(0xFF25282E),
+                            color = Color(0xFF242C52),
                             modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable { onModelClick() }
                         ) {
                             Row(
@@ -198,8 +199,8 @@ fun ComposerV2(
                             // Stop dictation — inserts into text, does not auto-send
                             Surface(
                                 shape = RoundedCornerShape(12.dp),
-                                color = Color.White,
-                                modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable {
+                                color = HertzPalette.Signal,
+                                modifier = Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).clickable {
                                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                     val inserted = dictationBuffer
                                     draft = (draft + (if (draft.isNotBlank() && inserted.isNotBlank()) " " else "") + inserted).trim()
@@ -207,19 +208,15 @@ fun ComposerV2(
                                     onStopDictation(inserted)
                                 }
                             ) {
-                                Row(
-                                    Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(Icons.Filled.Stop, null, tint = Color.Black, modifier = Modifier.size(16.dp))
-                                    Text(" " + str.stop, style = MaterialTheme.typography.labelMedium.copy(color = Color.Black))
+                                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                    Icon(Icons.Filled.Stop, str.stop, tint = Color.White, modifier = Modifier.size(16.dp))
                                 }
                             }
                         } else if (draft.isBlank() && enabled) {
                             // Empty field: show dictation (mic) and call (phone) as separate buttons
                             Surface(
                                 shape = RoundedCornerShape(12.dp),
-                                color = Color(0xFF25282E),
+                                color = Color(0xFF242C52),
                                 modifier = Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).clickable { onStartDictation() }
                             ) {
                                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -228,24 +225,24 @@ fun ComposerV2(
                             }
                             Surface(
                                 shape = RoundedCornerShape(12.dp),
-                                color = Color.White,
+                                color = HertzPalette.Signal,
                                 modifier = Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).clickable {
                                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                     onStartCall()
                                 }
                             ) {
                                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                    Icon(Icons.Filled.Phone, str.call, tint = Color.Black, modifier = Modifier.size(18.dp))
+                                    Icon(Icons.Filled.Phone, str.call, tint = Color.White, modifier = Modifier.size(18.dp))
                                 }
                             }
                         } else {
                             // Has text: icon-only Send, morphs into Stop while generating
                             val running = !enabled
                             val bg by animateColorAsState(
-                                targetValue = if (running) Color(0xFFFF4D4D) else Color.White,
+                                targetValue = if (running) Color(0xFFFF4D4D) else HertzPalette.Signal,
                                 label = "sendBg"
                             )
-                            val fg = if (running) Color.White else Color.Black
+                            val fg = Color.White
                             val interaction = remember { MutableInteractionSource() }
                             val pressed by interaction.collectIsPressedAsState()
                             val scale by animateFloatAsState(
@@ -296,8 +293,8 @@ fun CallControls(
     val str = LocalStrings.current
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = Color(0xFF1C1E22),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2A2E36)),
+        color = Color(0xFF1A2140),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2C355C)),
         modifier = modifier.fillMaxWidth()
     ) {
         Row(
@@ -305,40 +302,37 @@ fun CallControls(
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Mute
-            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove); onMute(!isMuted) }) {
-                Box(
-                    Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)).background(if (isMuted) Color.White else Color(0xFF2A2E36)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        painterResource(if (isMuted) R.drawable.ic_mic_muted else R.drawable.ic_custom_mic),
-                        if (isMuted) str.unmute else str.mute,
-                        tint = if (isMuted) Color.Black else Color.White,
-                        modifier = Modifier.size(22.dp),
-                    )
-                }
-                Text(if (isMuted) str.unmute else str.mute, style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF9AA0AE)), modifier = Modifier.padding(top = 6.dp))
+            // Mute — icon only; the glyph itself changes (mic vs. mic-muted), not just its tint
+            Box(
+                Modifier.size(56.dp).clip(RoundedCornerShape(14.dp))
+                    .background(if (isMuted) HertzPalette.Signal else Color(0xFF2C355C))
+                    .clickable { haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove); onMute(!isMuted) },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painterResource(if (isMuted) R.drawable.ic_mic_muted else R.drawable.ic_custom_mic),
+                    if (isMuted) str.unmute else str.mute,
+                    tint = Color.White,
+                    modifier = Modifier.size(22.dp),
+                )
             }
             // Pause
-            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove); onPause(!isPaused) }) {
-                Box(
-                    Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF2A2E36)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(if (isPaused) Icons.Filled.Mic else Icons.Filled.Pause, if (isPaused) str.resume else str.pause, tint = Color.White, modifier = Modifier.size(22.dp))
-                }
-                Text(if (isPaused) str.resume else str.pause, style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF9AA0AE)), modifier = Modifier.padding(top = 6.dp))
+            Box(
+                Modifier.size(56.dp).clip(RoundedCornerShape(14.dp))
+                    .background(if (isPaused) HertzPalette.Signal else Color(0xFF2C355C))
+                    .clickable { haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove); onPause(!isPaused) },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(if (isPaused) Icons.Filled.Mic else Icons.Filled.Pause, if (isPaused) str.resume else str.pause, tint = Color.White, modifier = Modifier.size(22.dp))
             }
-            // End — red
-            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { haptics.performHapticFeedback(HapticFeedbackType.LongPress); onEnd() }) {
-                Box(
-                    Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFFFF3B30)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(Icons.Filled.Close, str.end, tint = Color.White, modifier = Modifier.size(22.dp))
-                }
-                Text(str.end, style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF9AA0AE)), modifier = Modifier.padding(top = 6.dp))
+            // End — red, always distinct from the accent
+            Box(
+                Modifier.size(56.dp).clip(RoundedCornerShape(14.dp))
+                    .background(Color(0xFFFF3B30))
+                    .clickable { haptics.performHapticFeedback(HapticFeedbackType.LongPress); onEnd() },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Filled.Close, str.end, tint = Color.White, modifier = Modifier.size(22.dp))
             }
         }
     }
@@ -390,24 +384,29 @@ fun GhostChatDrawer(
 ) {
     val haptics = LocalHapticFeedback.current
     val str = LocalStrings.current
-    Column(Modifier.fillMaxWidth().background(Color(0xFF000000))) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 22.dp, vertical = 24.dp)) {
-            WaveformMark()
-            Text("HERTZ-DS", style = MaterialTheme.typography.titleMedium.copy(letterSpacing = 2.sp, color = Color.White), modifier = Modifier.padding(start = 10.dp))
-        }
-        Box(
-            Modifier.padding(horizontal = 14.dp).fillMaxWidth().clip(RoundedCornerShape(14.dp))
-                .background(Color.White).clickable {
-                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    onNewGhost()
-                }.padding(horizontal = 16.dp, vertical = 13.dp),
+    Column(Modifier.fillMaxWidth().background(Color(0xFF080B14))) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 24.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Filled.Add, null, tint = Color.Black, modifier = Modifier.size(18.dp))
-                Text(str.newGhostChat, style = MaterialTheme.typography.titleMedium.copy(color = Color.Black), modifier = Modifier.padding(start = 9.dp))
+                WaveformMark()
+                Text("HERTZ-DS", style = MaterialTheme.typography.titleMedium.copy(letterSpacing = 2.sp, color = Color.White), modifier = Modifier.padding(start = 10.dp))
+            }
+            Box(
+                Modifier.size(44.dp).clip(RoundedCornerShape(14.dp))
+                    .background(HertzPalette.Signal)
+                    .clickable {
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onNewGhost()
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Filled.Add, str.newGhostChat, tint = Color.White, modifier = Modifier.size(19.dp))
             }
         }
-        Text("${str.conversations} · ${chats.size}", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6B7280)), modifier = Modifier.padding(start = 22.dp, top = 20.dp, bottom = 6.dp))
+        Text("${str.conversations} · ${chats.size}", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6C74A0)), modifier = Modifier.padding(start = 22.dp, top = 20.dp, bottom = 6.dp))
         LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 8.dp)) {
             items(chats, key = { it.id }) { chat ->
                 val active = chat.id == currentId
@@ -420,7 +419,7 @@ fun GhostChatDrawer(
                 ) {
                     Box(
                         Modifier.width(3.dp).height(38.dp)
-                            .background(if (active) Color.White else Color.Transparent, RoundedCornerShape(2.dp)),
+                            .background(if (active) HertzPalette.Signal else Color.Transparent, RoundedCornerShape(2.dp)),
                     )
                     Column(Modifier.weight(1f).padding(horizontal = 12.dp, vertical = 9.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -430,15 +429,15 @@ fun GhostChatDrawer(
                             }
                             Text(
                                 chat.title,
-                                style = if (active) MaterialTheme.typography.titleMedium.copy(color = Color.White) else MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF9AA0AE)),
+                                style = if (active) MaterialTheme.typography.titleMedium.copy(color = Color.White) else MaterialTheme.typography.bodyMedium.copy(color = Color(0xFFA3ABD1)),
                                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                             )
                         }
-                        Text("${Models.label(chat.model)} · $%.4f".format(chat.totalCostUsd), style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6B7280)), modifier = Modifier.padding(top = 2.dp))
+                        Text("${Models.label(chat.model)} · $%.4f".format(chat.totalCostUsd), style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6C74A0)), modifier = Modifier.padding(top = 2.dp))
                     }
                     Icon(
                         Icons.Filled.Close, "Delete",
-                        tint = Color(0xFF6B7280),
+                        tint = Color(0xFF6C74A0),
                         modifier = Modifier.size(18.dp).clip(RoundedCornerShape(8.dp)).clickable {
                             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                             onDelete(chat.id)
@@ -450,16 +449,16 @@ fun GhostChatDrawer(
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(14.dp).fillMaxWidth().clip(RoundedCornerShape(14.dp))
-                .background(Color(0xFF1C1E22)).border(1.dp, Color(0xFF2A2E36), RoundedCornerShape(14.dp))
+                .background(Color(0xFF1A2140)).border(1.dp, Color(0xFF2C355C), RoundedCornerShape(14.dp))
                 .clickable { onOpenKeys() }.padding(horizontal = 16.dp, vertical = 13.dp),
         ) {
             Column(Modifier.weight(1f)) {
-                Text(str.credits, style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6B7280)))
+                Text(str.credits, style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6C74A0)))
                 Text(remainingUsd?.let { "$%.2f".format(it) } ?: "—", style = MaterialTheme.typography.titleLarge.copy(color = Color.White))
             }
             TextButton(onClick = onOpenKeys) { Text(str.manage, color = Color.White) }
             Box(
-                Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF2A2E36)).clickable { onOpenSettings() },
+                Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF2C355C)).clickable { onOpenSettings() },
                 contentAlignment = Alignment.Center
             ) { Icon(Icons.Filled.Settings, "Settings", tint = Color.White, modifier = Modifier.size(20.dp)) }
         }
@@ -496,7 +495,7 @@ fun ModelPickerDialog(selected: String, onSelect: (String) -> Unit, onDismiss: (
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { onSelect(id) }.padding(vertical = 4.dp),
             ) {
-                RadioButton(selected = id == selected, onClick = { onSelect(id) }, colors = RadioButtonDefaults.colors(selectedColor = Color.White, unselectedColor = Color(0xFF6B7280)))
+                RadioButton(selected = id == selected, onClick = { onSelect(id) }, colors = RadioButtonDefaults.colors(selectedColor = HertzPalette.Signal, unselectedColor = Color(0xFF6C74A0)))
                 Column(Modifier.padding(start = 2.dp)) {
                     Text(Models.label(id), style = MaterialTheme.typography.titleMedium.copy(color = Color.White))
                     Text(
@@ -504,7 +503,7 @@ fun ModelPickerDialog(selected: String, onSelect: (String) -> Unit, onDismiss: (
                             Models.PRO -> str.modelProDesc
                             Models.VISION -> str.modelVisionDesc
                             else -> str.modelFlashDesc
-                        }, style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF9AA0AE))
+                        }, style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFA3ABD1))
                     )
                 }
             }
@@ -517,18 +516,18 @@ fun ModelPickerDialog(selected: String, onSelect: (String) -> Unit, onDismiss: (
 private fun ModelDropdown(selected: String, models: List<String>, onSelect: (String) -> Unit) {
     var open by rememberSaveable { mutableStateOf(false) }
     Column {
-        Text("MODEL", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6B7280)), modifier = Modifier.padding(bottom = 6.dp))
+        Text("MODEL", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6C74A0)), modifier = Modifier.padding(bottom = 6.dp))
         Box {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
-                    .background(Color(0xFF1C1E22)).border(1.dp, Color(0xFF2A2E36), RoundedCornerShape(12.dp))
+                    .background(Color(0xFF1A2140)).border(1.dp, Color(0xFF2C355C), RoundedCornerShape(12.dp))
                     .clickable { open = true }.padding(horizontal = 14.dp, vertical = 12.dp),
             ) {
                 Text(Models.label(selected), style = MaterialTheme.typography.titleMedium.copy(color = Color.White), modifier = Modifier.weight(1f))
-                Text(if (open) "▲" else "▼", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF9AA0AE)))
+                Text(if (open) "▲" else "▼", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFFA3ABD1)))
             }
-            DropdownMenu(expanded = open, onDismissRequest = { open = false }, modifier = Modifier.background(Color(0xFF1C1E22))) {
+            DropdownMenu(expanded = open, onDismissRequest = { open = false }, modifier = Modifier.background(Color(0xFF1A2140))) {
                 models.forEach { candidate ->
                     DropdownMenuItem(text = { Text(Models.label(candidate), color = Color.White) }, onClick = { onSelect(candidate); open = false })
                 }
@@ -557,32 +556,32 @@ private fun HertzDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = Color(0xFF111214),
+        containerColor = Color(0xFF10152A),
         shape = RoundedCornerShape(16.dp),
         title = { Text(title, style = MaterialTheme.typography.headlineSmall.copy(color = Color.White)) },
         text = { Column(verticalArrangement = Arrangement.spacedBy(14.dp), content = content) },
         confirmButton = {
             if (confirmLabel.isNotBlank()) TextButton(onClick = onConfirm) { Text(confirmLabel, color = Color.White) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(dismissLabel, color = Color(0xFF9AA0AE)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(dismissLabel, color = Color(0xFFA3ABD1)) } },
     )
 }
 
 @Composable
 private fun DialogField(value: String, onChange: (String) -> Unit, label: String, singleLine: Boolean = false, minLines: Int = 1, maxLines: Int = 1) {
     Column {
-        Text(label.uppercase(), style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6B7280)), modifier = Modifier.padding(bottom = 6.dp))
+        Text(label.uppercase(), style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6C74A0)), modifier = Modifier.padding(bottom = 6.dp))
         OutlinedTextField(
             value = value, onValueChange = onChange, singleLine = singleLine, minLines = minLines, maxLines = maxLines,
             shape = RoundedCornerShape(12.dp),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = Color.White.copy(alpha = 0.6f),
-                unfocusedBorderColor = Color(0xFF2A2E36),
+                unfocusedBorderColor = Color(0xFF2C355C),
                 focusedContainerColor = Color.Transparent,
-                unfocusedContainerColor = Color(0xFF1C1E22),
+                unfocusedContainerColor = Color(0xFF1A2140),
                 cursorColor = Color.White,
             ),
-            textStyle = MaterialTheme.typography.bodyLarge.copy(color = Color(0xFFECEFF3)),
+            textStyle = MaterialTheme.typography.bodyLarge.copy(color = Color(0xFFE7EAFB)),
             modifier = Modifier.fillMaxWidth(),
         )
     }

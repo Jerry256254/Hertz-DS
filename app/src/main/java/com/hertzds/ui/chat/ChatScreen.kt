@@ -39,6 +39,7 @@ import com.hertzds.deepseek.Models
 import com.hertzds.ui.AppVm
 import com.hertzds.ui.HandsFreeUi
 import com.hertzds.ui.TurnState
+import com.hertzds.ui.theme.HertzPalette
 import com.hertzds.ui.theme.LocalStrings
 import kotlinx.coroutines.launch
 
@@ -111,8 +112,8 @@ fun ChatScreen(
         drawerState = drawerState,
         drawerContent = {
             ModalDrawerSheet(
-                drawerContainerColor = Color(0xFF0A0A0A),
-                drawerContentColor = Color(0xFFECEFF3),
+                drawerContainerColor = Color(0xFF0A0E1C),
+                drawerContentColor = Color(0xFFE7EAFB),
                 windowInsets = WindowInsets(0, 0, 0, 0),
             ) {
                 GhostChatDrawer(
@@ -135,7 +136,7 @@ fun ChatScreen(
         Box(
             Modifier
                 .fillMaxSize()
-                .background(Color(0xFF000000))
+                .background(Color(0xFF080B14))
         ) {
             // Fog overlays for call mode — bottom for user, top for assistant
             if (isInCall) {
@@ -282,7 +283,7 @@ fun ChatScreen(
                         )
                         Text(
                             str.disclaimer,
-                            style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6B7280)),
+                            style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6C74A0)),
                             textAlign = TextAlign.Center,
                             modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp)
                         )
@@ -336,8 +337,8 @@ private fun FloatingIslands(
         // Left island — drawer
         Surface(
             shape = RoundedCornerShape(14.dp),
-            color = Color(0xFF1C1E22),
-            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2A2E36)),
+            color = Color(0xFF1A2140),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2C355C)),
             modifier = Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).clickable(onClick = onMenuClick)
         ) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -348,41 +349,33 @@ private fun FloatingIslands(
                 )
             }
         }
-        // Right island — New chat when in a chat, else Ghost toggle
+        // Right island — New chat when in a chat, else Ghost toggle. Icon-only:
+        // the glyph plus the accent-blue "on" fill carries the meaning.
         if (hasChat) {
             Surface(
                 shape = RoundedCornerShape(14.dp),
-                color = Color(0xFF1C1E22),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2A2E36)),
-                modifier = Modifier.clip(RoundedCornerShape(14.dp)).clickable(onClick = onNewChat)
+                color = Color(0xFF1A2140),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2C355C)),
+                modifier = Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).clickable(onClick = onNewChat)
             ) {
-                Row(
-                    Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(Icons.Filled.Add, null, tint = Color.White, modifier = Modifier.size(16.dp))
-                    Text(str.newChat, style = MaterialTheme.typography.labelMedium.copy(color = Color.White), modifier = Modifier.padding(start = 6.dp))
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Filled.Add, str.newChat, tint = Color.White, modifier = Modifier.size(20.dp))
                 }
             }
         } else {
             val ghostOn = ghostEnabled
             Surface(
                 shape = RoundedCornerShape(14.dp),
-                color = if (ghostOn) Color.White else Color(0xFF1C1E22),
-                border = androidx.compose.foundation.BorderStroke(1.dp, if (ghostOn) Color.White else Color(0xFF2A2E36)),
-                modifier = Modifier.clip(RoundedCornerShape(14.dp)).clickable { onGhostToggle(!ghostOn) }
+                color = if (ghostOn) HertzPalette.Signal else Color(0xFF1A2140),
+                border = androidx.compose.foundation.BorderStroke(1.dp, if (ghostOn) HertzPalette.Signal else Color(0xFF2C355C)),
+                modifier = Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).clickable { onGhostToggle(!ghostOn) }
             ) {
-                Row(
-                    Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        Modifier.size(8.dp).background(if (ghostOn) Color.Black else Color.White, androidx.compose.foundation.shape.CircleShape)
-                    )
-                    Text(
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Icon(
+                        painterResource(R.drawable.ic_ghost),
                         if (ghostOn) str.ghostOn else str.ghostOff,
-                        style = MaterialTheme.typography.labelMedium.copy(color = if (ghostOn) Color.Black else Color.White),
-                        modifier = Modifier.padding(start = 6.dp)
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp),
                     )
                 }
             }
@@ -413,7 +406,7 @@ private fun ToolTicker(state: TurnState.Running) {
                 state.toolDetail?.let { append(" · $it") }
             },
             style = MaterialTheme.typography.labelMedium,
-            color = Color(0xFF9AA0AE),
+            color = Color(0xFFA3ABD1),
             modifier = Modifier.padding(start = 10.dp),
         )
     }
@@ -433,7 +426,7 @@ private fun EmptyHero(onSuggestion: (String) -> Unit, modifier: Modifier = Modif
         Text(str.heroTitle, style = MaterialTheme.typography.displaySmall.copy(color = Color.White), textAlign = TextAlign.Center)
         Text(
             str.heroSubtitle,
-            style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF9AA0AE)),
+            style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFFA3ABD1)),
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 8.dp),
         )
@@ -441,8 +434,8 @@ private fun EmptyHero(onSuggestion: (String) -> Unit, modifier: Modifier = Modif
         suggestions.forEach { (prompt, hint) ->
             Surface(
                 shape = RoundedCornerShape(16.dp),
-                color = Color(0xFF1C1E22),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2A2E36)),
+                color = Color(0xFF1A2140),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2C355C)),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 5.dp)
@@ -450,7 +443,7 @@ private fun EmptyHero(onSuggestion: (String) -> Unit, modifier: Modifier = Modif
             ) {
                 Column(Modifier.padding(horizontal = 15.dp, vertical = 12.dp)) {
                     Text(prompt, style = MaterialTheme.typography.titleMedium.copy(color = Color.White), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(hint, style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF9AA0AE)), modifier = Modifier.padding(top = 2.dp))
+                    Text(hint, style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFA3ABD1)), modifier = Modifier.padding(top = 2.dp))
                 }
             }
         }

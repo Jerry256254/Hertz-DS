@@ -9,6 +9,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.hertzds.ui.theme.HertzPalette
 import kotlin.math.sin
 
 /**
@@ -46,9 +47,9 @@ fun VoiceFog(
             .background(
                 Brush.verticalGradient(
                     colors = if (fromBottom) {
-                        listOf(Color.Transparent, Color.White.copy(alpha = 0.18f), Color.White.copy(alpha = 0.06f))
+                        listOf(Color.Transparent, HertzPalette.Signal.copy(alpha = 0.30f), HertzPalette.Signal.copy(alpha = 0.10f))
                     } else {
-                        listOf(Color.White.copy(alpha = 0.06f), Color.White.copy(alpha = 0.18f), Color.Transparent)
+                        listOf(HertzPalette.Signal.copy(alpha = 0.10f), HertzPalette.Signal.copy(alpha = 0.30f), Color.Transparent)
                     }
                 )
             )
@@ -60,7 +61,7 @@ fun VoiceFog(
                 .offset(x = drift.dp)
                 .background(
                     Brush.horizontalGradient(
-                        colors = listOf(Color.Transparent, Color.White.copy(alpha = 0.04f), Color.Transparent)
+                        colors = listOf(Color.Transparent, HertzPalette.Signal.copy(alpha = 0.07f), Color.Transparent)
                     )
                 )
         )

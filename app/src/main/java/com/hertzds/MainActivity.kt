@@ -124,18 +124,18 @@ private fun EulaGate(onAccept: () -> Unit, onDecline: () -> Unit) {
     val str = LocalStrings.current
     AlertDialog(
         onDismissRequest = {},
-        containerColor = androidx.compose.ui.graphics.Color(0xFF111214),
+        containerColor = androidx.compose.ui.graphics.Color(0xFF10152A),
         shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
         title = { Text(str.welcomeTitle, textAlign = TextAlign.Center, color = androidx.compose.ui.graphics.Color.White) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 Text(
                     str.welcomeBody,
-                    style = MaterialTheme.typography.bodySmall.copy(color = androidx.compose.ui.graphics.Color(0xFF9AA0AE)),
+                    style = MaterialTheme.typography.bodySmall.copy(color = androidx.compose.ui.graphics.Color(0xFFA3ABD1)),
                 )
             }
         },
         confirmButton = { TextButton(onClick = onAccept) { Text(str.agree, color = androidx.compose.ui.graphics.Color.White) } },
-        dismissButton = { TextButton(onClick = onDecline) { Text(str.exit, color = androidx.compose.ui.graphics.Color(0xFF9AA0AE)) } },
+        dismissButton = { TextButton(onClick = onDecline) { Text(str.exit, color = androidx.compose.ui.graphics.Color(0xFFA3ABD1)) } },
     )
 }

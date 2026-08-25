@@ -123,8 +123,18 @@ class AppVm(private val container: AppContainer) : ViewModel() {
     val readingMessageId: StateFlow<String?> = _readingMessageId.asStateFlow()
     private var readJob: Job? = null
 
-    /** Set by [newChat]; consumed by [runTurn] to force a brand-new row instead of reopening the last chat. */
-    private var pendingFreshChat = false
+    /**
+     * What [runTurn] should create when there is no current chat yet. Set by
+     * [newChat] / [toggleGhostMode] and consumed on the first actual send — so
+     * tapping "New chat" or flipping the ghost toggle never writes anything to
+     * the database on its own; only sending a message does.
+     */
+    private sealed interface PendingChat {
+        data object None : PendingChat
+        data object Fresh : PendingChat
+        data object Ghost : PendingChat
+    }
+    private var pendingChat: PendingChat = PendingChat.None
 
     private var turnJob: Job? = null
     private var handsFreeJob: Job? = null
@@ -178,7 +188,22 @@ class AppVm(private val container: AppContainer) : ViewModel() {
      * message to put in it.
      */
     fun newChat() {
-        pendingFreshChat = true
+        pendingChat = PendingChat.Fresh
+        clearToComposeState()
+    }
+
+    /**
+     * Ghost mode is also deferred: flipping the toggle just marks what the next
+     * send should create. Nothing is written to the database — and nothing
+     * appears in the drawer — until an actual message goes out.
+     */
+    fun toggleGhostMode(enabled: Boolean) {
+        _ghostMode.value = enabled
+        pendingChat = if (enabled) PendingChat.Ghost else PendingChat.Fresh
+        clearToComposeState()
+    }
+
+    private fun clearToComposeState() {
         turnJob?.cancel()
         turnJob = null
         voice.stopSpeaking()
@@ -188,22 +213,6 @@ class AppVm(private val container: AppContainer) : ViewModel() {
         _messages.value = emptyList()
         _pendingAttachments.value = emptyList()
         _turn.value = TurnState.Idle
-    }
-
-    fun toggleGhostMode(enabled: Boolean) {
-        _ghostMode.value = enabled
-        if (enabled) {
-            // Create an ephemeral ghost chat — marked via title, no memory will be injected
-            viewModelScope.launch {
-                val s = settings.value ?: return@launch
-                val chat = chats.createChat(
-                    title = "Ghost — ephemeral",
-                    model = s.defaultModel,
-                    systemPrompt = "You are in ghost mode: do not use long-term memory tools and do not store anything. Answer only from this conversation.",
-                )
-                openChat(chat.id)
-            }
-        }
     }
 
     fun newGhostChat(model: String?, systemPrompt: String?, title: String?) {
@@ -348,16 +357,20 @@ class AppVm(private val container: AppContainer) : ViewModel() {
         val s = settings.value ?: return ""
         var chatId = _currentChatId.value
         if (chatId == null) {
-            val chat = if (pendingFreshChat) {
-                chats.createChat(title = defaultChatTitle(), model = s.defaultModel, systemPrompt = null)
-            } else {
-                chats.chats.first().firstOrNull() ?: chats.ensureChat(
+            val chat = when (pendingChat) {
+                PendingChat.Ghost -> chats.createChat(
+                    title = "Ghost — ephemeral",
+                    model = s.defaultModel,
+                    systemPrompt = "You are in ghost mode: do not use long-term memory tools and do not store anything. Answer only from this conversation.",
+                )
+                PendingChat.Fresh -> chats.createChat(title = defaultChatTitle(), model = s.defaultModel, systemPrompt = null)
+                PendingChat.None -> chats.chats.first().firstOrNull() ?: chats.ensureChat(
                     model = s.defaultModel,
                     systemPrompt = null,
                     fallbackTitle = defaultChatTitle(),
                 )
             }
-            pendingFreshChat = false
+            pendingChat = PendingChat.None
             openChat(chat.id)
             chatId = chat.id
         }

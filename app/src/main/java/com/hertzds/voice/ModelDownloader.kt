@@ -34,9 +34,20 @@ class ModelDownloader(private val context: Context, private val http: OkHttpClie
     fun directoryFor(id: String, extractedDirName: String): File =
         File(File(modelsRoot(), id), extractedDirName)
 
+    /**
+     * Downloads and extracts atomically: extraction lands in a `.partial` staging
+     * folder and is only renamed to its final name once fully complete. A model
+     * folder that a viewer/downloader can see under [extractedDirName] is
+     * therefore guaranteed complete — [isDownloaded] can never see (and the
+     * native TTS/STT engines can never try to load) a truncated model left
+     * behind by an interrupted download, which otherwise loads as a corrupt
+     * ONNX file and crashes the process at the native layer, uncatchable from
+     * Kotlin.
+     */
     fun download(id: String, archiveUrl: String, extractedDirName: String): Flow<DownloadProgress> = flow {
         val targetDir = File(modelsRoot(), id).apply { mkdirs() }
         val archiveFile = File(targetDir, "archive.tar.bz2")
+        val stagingDir = File(targetDir, "$extractedDirName.partial")
 
         try {
             val request = Request.Builder().url(archiveUrl).build()
@@ -63,20 +74,32 @@ class ModelDownloader(private val context: Context, private val http: OkHttpClie
                         }
                     }
                 }
+                if (total > 0 && read != total) {
+                    error("incomplete download: got $read of $total bytes")
+                }
             }
 
             emit(DownloadProgress.Extracting)
-            extractTarBz2(archiveFile, targetDir)
+            stagingDir.deleteRecursively()
+            stagingDir.mkdirs()
+            extractTarBz2(archiveFile, stagingDir)
             archiveFile.delete()
 
-            val extracted = File(targetDir, extractedDirName)
-            if (!extracted.exists()) {
-                emit(DownloadProgress.Failed("archive did not contain expected folder $extractedDirName"))
-                return@flow
+            val stagedModel = File(stagingDir, extractedDirName)
+            if (!stagedModel.exists()) {
+                error("archive did not contain expected folder $extractedDirName")
             }
-            emit(DownloadProgress.Done(extracted))
+            val finalDir = File(targetDir, extractedDirName)
+            finalDir.deleteRecursively()
+            if (!stagedModel.renameTo(finalDir)) {
+                error("could not finalize downloaded model")
+            }
+            stagingDir.deleteRecursively()
+
+            emit(DownloadProgress.Done(finalDir))
         } catch (e: Exception) {
             archiveFile.delete()
+            stagingDir.deleteRecursively()
             emit(DownloadProgress.Failed(e.message ?: "download failed"))
         }
     }.flowOn(Dispatchers.IO)

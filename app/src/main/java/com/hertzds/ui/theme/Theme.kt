@@ -18,41 +18,42 @@ import androidx.compose.ui.unit.sp
 import com.hertzds.data.prefs.ThemeMode
 
 // ─────────────────────────────────────────────────────────────────────────────
-// HERTZ-DS · "Pure Space Black" — Material You Expressive, gently squared
-// Pure black canvas, light-gray type, pure-white signal. No blue.
-// Squared-rounded: 12 / 14 / 16 / 20 — never pill, never circular excess.
+// HERTZ-DS · "Deep Current" — dark-blue Material You Expressive, gently squared
+// Very dark navy canvas, cool light-blue type, a vivid indigo-blue signal color
+// on primary actions (send/call/active states). Squared-rounded: 12/14/16/20.
 // ─────────────────────────────────────────────────────────────────────────────
 
 object HertzPalette {
-    // Dark — pure black space
-    val Bg = Color(0xFF000000)
-    val Surface = Color(0xFF111214)
-    val SurfaceHigh = Color(0xFF1C1E22)
-    val SurfaceHigher = Color(0xFF25282E)
-    val Hairline = Color(0xFF2A2E36)
-    val HairlineStrong = Color(0xFF3A3F4B)
-    val Ink = Color(0xFFECEFF3)          // light gray — primary text
-    val InkMuted = Color(0xFF9AA0AE)      // muted
-    val InkFaint = Color(0xFF6B7280)
-    val Signal = Color(0xFFFFFFFF)       // pure white — replaces blue
-    val SignalMuted = Color(0xFFD1D5DB)
-    val SignalVeil = Color(0x18FFFFFF)   // white veil 10%
-    val SignalVeilStrong = Color(0x30FFFFFF)
-    val Positive = Color(0xFFFFFFFF)     // also white in this theme (user wants white)
-    val PositiveAlt = Color(0xFF9AE6B4)  // keep for credits when needed, but use white by default
-    val Negative = Color(0xFFFF6B6B)
+    // Dark — deep navy space
+    val Bg = Color(0xFF080B14)
+    val Surface = Color(0xFF10152A)
+    val SurfaceHigh = Color(0xFF1A2140)
+    val SurfaceHigher = Color(0xFF242C52)
+    val Hairline = Color(0xFF2C355C)
+    val HairlineStrong = Color(0xFF3B4570)
+    val Ink = Color(0xFFE7EAFB)           // cool light-blue-white — primary text
+    val InkMuted = Color(0xFFA3ABD1)      // muted
+    val InkFaint = Color(0xFF6C74A0)
+    val Signal = Color(0xFF5B7FFF)        // vivid indigo-blue — primary actions
+    val SignalMuted = Color(0xFF8FA6FF)
+    val OnSignal = Color(0xFFF4F6FF)      // icon/text drawn on the accent surface
+    val SignalVeil = Color(0x295B7FFF)    // accent veil ~16%
+    val SignalVeilStrong = Color(0x4D5B7FFF)
+    val Positive = Color(0xFF5B7FFF)      // ties "success/active" language to the accent
+    val PositiveAlt = Color(0xFF9AE6B4)
+    val Negative = Color(0xFFFF5A6E)
     val Warning = Color(0xFFFFC24B)
 
-    // Light — not pure black but keep white-accent language
-    val BgL = Color(0xFFF6F8FB)
+    // Light — same blue accent, light neutral canvas
+    val BgL = Color(0xFFF3F5FC)
     val SurfaceL = Color.White
-    val SurfaceHighL = Color(0xFFEFF2F7)
-    val HairlineL = Color(0xFFE2E7EE)
-    val InkL = Color(0xFF0F1319)
-    val InkMutedL = Color(0xFF59636F)
-    val InkFaintL = Color(0xFF98A1AC)
-    val SignalL = Color(0xFF111214)
-    val SignalVeilL = Color(0x14000000)
+    val SurfaceHighL = Color(0xFFE9EDFB)
+    val HairlineL = Color(0xFFDCE1F5)
+    val InkL = Color(0xFF10152A)
+    val InkMutedL = Color(0xFF565F86)
+    val InkFaintL = Color(0xFF8790B8)
+    val SignalL = Color(0xFF3E5CE0)
+    val SignalVeilL = Color(0x1F3E5CE0)
 }
 
 class HertzTokens(
@@ -68,7 +69,7 @@ val LocalHertz = staticCompositionLocalOf { HertzTokens() }
 
 private fun darkScheme() = darkColorScheme(
     primary = HertzPalette.Signal,
-    onPrimary = Color(0xFF000000),
+    onPrimary = HertzPalette.OnSignal,
     primaryContainer = HertzPalette.SurfaceHigh,
     onPrimaryContainer = HertzPalette.Ink,
     secondary = HertzPalette.SurfaceHigher,

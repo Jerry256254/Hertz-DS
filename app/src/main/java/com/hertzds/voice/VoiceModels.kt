@@ -29,30 +29,33 @@ sealed class VoiceModel(
     }
 
     companion object {
+        /**
+         * Verified against the sherpa-onnx "tts-models" GitHub release on 2026-08-26 —
+         * every archiveUrl below was actually downloaded and its contents inspected.
+         * "Jirka" is the ONLY Czech Piper voice sherpa-onnx has published; a previous
+         * version of this catalog listed two more ("Hana", "Lukáš") that were never
+         * real — those release assets don't exist (404), so they could never finish
+         * downloading. The second Czech voice here is a Coqui-trained VITS model
+         * (single Czech speaker, no espeak phonemization) from the same release —
+         * its file layout (a *.onnx plus tokens.txt, no espeak-ng-data) already fits
+         * [SherpaTts.load]'s generic file discovery without any loader changes.
+         */
         val PIPER_VOICES = listOf(
             Piper(
                 id = "piper-cs-jirka",
                 displayName = "Jirka (čeština)",
-                approxSizeMb = 63,
+                approxSizeMb = 64,
                 language = "cs",
                 releaseAsset = "vits-piper-cs_CZ-jirka-medium.tar.bz2",
                 extractedDirName = "vits-piper-cs_CZ-jirka-medium",
             ),
             Piper(
-                id = "piper-cs-hana",
-                displayName = "Hana (čeština)",
-                approxSizeMb = 63,
+                id = "coqui-cs-female",
+                displayName = "Coqui (čeština, žena)",
+                approxSizeMb = 64,
                 language = "cs",
-                releaseAsset = "vits-piper-cs_CZ-hana-medium.tar.bz2",
-                extractedDirName = "vits-piper-cs_CZ-hana-medium",
-            ),
-            Piper(
-                id = "piper-cs-lukas",
-                displayName = "Lukáš (čeština)",
-                approxSizeMb = 63,
-                language = "cs",
-                releaseAsset = "vits-piper-cs_CZ-lukas-medium.tar.bz2",
-                extractedDirName = "vits-piper-cs_CZ-lukas-medium",
+                releaseAsset = "vits-coqui-cs-cv.tar.bz2",
+                extractedDirName = "vits-coqui-cs-cv",
             ),
             Piper(
                 id = "piper-en-amy",
