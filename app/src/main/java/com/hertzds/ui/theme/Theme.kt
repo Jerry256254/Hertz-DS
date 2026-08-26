@@ -34,12 +34,12 @@ object HertzPalette {
     val Ink = Color(0xFFE7EAFB)           // cool light-blue-white — primary text
     val InkMuted = Color(0xFFA3ABD1)      // muted
     val InkFaint = Color(0xFF6C74A0)
-    val Signal = Color(0xFF5B7FFF)        // vivid indigo-blue — primary actions
-    val SignalMuted = Color(0xFF8FA6FF)
-    val OnSignal = Color(0xFFF4F6FF)      // icon/text drawn on the accent surface
-    val SignalVeil = Color(0x295B7FFF)    // accent veil ~16%
-    val SignalVeilStrong = Color(0x4D5B7FFF)
-    val Positive = Color(0xFF5B7FFF)      // ties "success/active" language to the accent
+    val Signal = Color(0xFF0D9488)        // deep teal — primary actions (shark/ocean, not candy-blue)
+    val SignalMuted = Color(0xFF5EEAD4)
+    val OnSignal = Color(0xFFF4FFFC)      // icon/text drawn on the accent surface
+    val SignalVeil = Color(0x290D9488)    // accent veil ~16%
+    val SignalVeilStrong = Color(0x4D0D9488)
+    val Positive = Color(0xFF0D9488)      // ties "success/active" language to the accent
     val PositiveAlt = Color(0xFF9AE6B4)
     val Negative = Color(0xFFFF5A6E)
     val Warning = Color(0xFFFFC24B)
@@ -52,8 +52,8 @@ object HertzPalette {
     val InkL = Color(0xFF10152A)
     val InkMutedL = Color(0xFF565F86)
     val InkFaintL = Color(0xFF8790B8)
-    val SignalL = Color(0xFF3E5CE0)
-    val SignalVeilL = Color(0x1F3E5CE0)
+    val SignalL = Color(0xFF0F766E)
+    val SignalVeilL = Color(0x1F0F766E)
 }
 
 class HertzTokens(

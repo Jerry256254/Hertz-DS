@@ -3,7 +3,10 @@ package com.hertzds.ui.chat
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -14,12 +17,17 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.*
@@ -32,7 +40,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -45,6 +55,22 @@ import com.hertzds.deepseek.Models
 import com.hertzds.ui.theme.HertzPalette
 import com.hertzds.ui.theme.LocalStrings
 
+/**
+ * A vertical fade from the app background color toward transparent — used behind
+ * the floating top/bottom bars so scrolled chat content is genuinely visible
+ * sliding past underneath them, glass-style, rather than being hidden by a
+ * solid bar. (A true gaussian blur-through needs capturing the layer beneath,
+ * which Compose has no simple built-in for; this fade is the achievable part.)
+ */
+fun GlassBrush(fromTop: Boolean): androidx.compose.ui.graphics.Brush {
+    val base = Color(0xFF0A0E1C)
+    val edge = base.copy(alpha = 0.94f)
+    val middle = base.copy(alpha = 0.5f)
+    return androidx.compose.ui.graphics.Brush.verticalGradient(
+        if (fromTop) listOf(edge, edge, middle) else listOf(middle, edge, edge),
+    )
+}
+
 // ── Composer V2 — two rows, gently squared, pure black/white system ──
 
 @Composable
@@ -53,7 +79,7 @@ fun ComposerV2(
     pendingAttachments: List<AttachmentEntity>,
     currentModel: String,
     onAttach: () -> Unit,
-    onModelClick: () -> Unit,
+    onSelectModel: (String) -> Unit,
     onRemoveAttachment: (String) -> Unit,
     onSend: (String) -> Unit,
     onStopSend: () -> Unit,
@@ -66,6 +92,8 @@ fun ComposerV2(
 ) {
     var draft by rememberSaveable { mutableStateOf("") }
     val haptics = LocalHapticFeedback.current
+    val keyboard = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
     val str = LocalStrings.current
 
     // When dictation produces a partial, keep it visible but don't auto-insert yet
@@ -114,16 +142,20 @@ fun ComposerV2(
         }
 
         Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = Color(0xFF1A2140),
+            shape = RoundedCornerShape(26.dp),
+            color = Color(0xFF1A2140).copy(alpha = 0.78f),
             border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2C355C)),
         ) {
-            Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
-                // Row 1 — expanding text
-                Box(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
+                // Row 1 — the text field, or a full-width live waveform while dictating
+                if (isDictating) {
+                    Box(Modifier.fillMaxWidth().height(44.dp), contentAlignment = Alignment.Center) {
+                        DictationWaveform(rms = dictationRms, modifier = Modifier.fillMaxWidth())
+                    }
+                } else {
                     OutlinedTextField(
-                        value = if (isDictating && dictationBuffer.isNotBlank()) draft + (if (draft.isNotBlank()) " " else "") + dictationBuffer else draft,
-                        onValueChange = { if (!isDictating) draft = it },
+                        value = draft,
+                        onValueChange = { draft = it },
                         modifier = Modifier.fillMaxWidth(),
                         placeholder = {
                             Text(
@@ -134,7 +166,6 @@ fun ComposerV2(
                         textStyle = MaterialTheme.typography.bodyLarge.copy(color = Color(0xFFE7EAFB)),
                         maxLines = 8,
                         minLines = 1,
-                        readOnly = isDictating,
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = Color.Transparent,
                             unfocusedBorderColor = Color.Transparent,
@@ -143,9 +174,6 @@ fun ComposerV2(
                             cursorColor = Color.White,
                         ),
                     )
-                    if (isDictating) {
-                        DictationWaveform(rms = dictationRms, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 2.dp))
-                    }
                 }
 
                 Spacer(Modifier.height(8.dp))
@@ -160,9 +188,9 @@ fun ComposerV2(
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         // Attach
                         Surface(
-                            shape = RoundedCornerShape(12.dp),
+                            shape = androidx.compose.foundation.shape.CircleShape,
                             color = Color(0xFF242C52),
-                            modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable(enabled = enabled) {
+                            modifier = Modifier.clip(androidx.compose.foundation.shape.CircleShape).clickable(enabled = enabled) {
                                 haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 onAttach()
                             }
@@ -170,25 +198,49 @@ fun ComposerV2(
                             Icon(
                                 Icons.Filled.Add, "Attach",
                                 tint = Color.White,
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp).size(18.dp)
+                                modifier = Modifier.padding(10.dp).size(18.dp)
                             )
                         }
-                        // Model pill — gently squared
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = Color(0xFF242C52),
-                            modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable { onModelClick() }
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        // Model pill — anchors its own dropdown right where it sits,
+                        // not a full-screen dialog floating in the middle of the app.
+                        var modelMenuOpen by remember { mutableStateOf(false) }
+                        Box {
+                            Surface(
+                                shape = RoundedCornerShape(20.dp),
+                                color = Color(0xFF242C52),
+                                modifier = Modifier.clip(RoundedCornerShape(20.dp)).clickable {
+                                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    modelMenuOpen = true
+                                }
                             ) {
-                                Icon(painterResource(R.drawable.ic_model_spark), null, tint = Color.White, modifier = Modifier.size(12.dp))
-                                Text(
-                                    Models.label(currentModel),
-                                    style = MaterialTheme.typography.labelMedium.copy(color = Color.White),
-                                    modifier = Modifier.padding(start = 6.dp),
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                ) {
+                                    Icon(painterResource(R.drawable.ic_model_spark), null, tint = Color.White, modifier = Modifier.size(12.dp))
+                                    Text(
+                                        Models.label(currentModel),
+                                        style = MaterialTheme.typography.labelMedium.copy(color = Color.White),
+                                        modifier = Modifier.padding(start = 6.dp),
+                                    )
+                                    Text(
+                                        if (modelMenuOpen) "▲" else "▼",
+                                        style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFFA3ABD1)),
+                                        modifier = Modifier.padding(start = 5.dp),
+                                    )
+                                }
+                            }
+                            DropdownMenu(
+                                expanded = modelMenuOpen,
+                                onDismissRequest = { modelMenuOpen = false },
+                                modifier = Modifier.background(Color(0xFF1A2140)),
+                            ) {
+                                Models.ALL.forEach { id ->
+                                    DropdownMenuItem(
+                                        text = { Text(Models.label(id), color = if (id == currentModel) HertzPalette.Signal else Color.White) },
+                                        onClick = { onSelectModel(id); modelMenuOpen = false },
+                                    )
+                                }
                             }
                         }
                     }
@@ -198,9 +250,9 @@ fun ComposerV2(
                         if (isDictating) {
                             // Stop dictation — inserts into text, does not auto-send
                             Surface(
-                                shape = RoundedCornerShape(12.dp),
+                                shape = androidx.compose.foundation.shape.CircleShape,
                                 color = HertzPalette.Signal,
-                                modifier = Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).clickable {
+                                modifier = Modifier.size(40.dp).clip(androidx.compose.foundation.shape.CircleShape).clickable {
                                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                     val inserted = dictationBuffer
                                     draft = (draft + (if (draft.isNotBlank() && inserted.isNotBlank()) " " else "") + inserted).trim()
@@ -215,18 +267,18 @@ fun ComposerV2(
                         } else if (draft.isBlank() && enabled) {
                             // Empty field: show dictation (mic) and call (phone) as separate buttons
                             Surface(
-                                shape = RoundedCornerShape(12.dp),
+                                shape = androidx.compose.foundation.shape.CircleShape,
                                 color = Color(0xFF242C52),
-                                modifier = Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).clickable { onStartDictation() }
+                                modifier = Modifier.size(40.dp).clip(androidx.compose.foundation.shape.CircleShape).clickable { onStartDictation() }
                             ) {
                                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                     Icon(painterResource(R.drawable.ic_custom_mic), str.dictate, tint = Color.White, modifier = Modifier.size(20.dp))
                                 }
                             }
                             Surface(
-                                shape = RoundedCornerShape(12.dp),
+                                shape = androidx.compose.foundation.shape.CircleShape,
                                 color = HertzPalette.Signal,
-                                modifier = Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).clickable {
+                                modifier = Modifier.size(40.dp).clip(androidx.compose.foundation.shape.CircleShape).clickable {
                                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                     onStartCall()
                                 }
@@ -251,17 +303,22 @@ fun ComposerV2(
                                 label = "sendScale",
                             )
                             Surface(
-                                shape = RoundedCornerShape(12.dp),
+                                shape = androidx.compose.foundation.shape.CircleShape,
                                 color = bg,
                                 modifier = Modifier
                                     .size(40.dp)
                                     .graphicsLayer { scaleX = scale; scaleY = scale }
-                                    .clip(RoundedCornerShape(12.dp))
+                                    .clip(androidx.compose.foundation.shape.CircleShape)
                                     .clickable(interactionSource = interaction, indication = null) {
                                         haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                         when {
                                             running -> onStopSend()
-                                            draft.isNotBlank() -> { onSend(draft); draft = "" }
+                                            draft.isNotBlank() -> {
+                                                onSend(draft)
+                                                draft = ""
+                                                keyboard?.hide()
+                                                focusManager.clearFocus(force = true)
+                                            }
                                         }
                                     }
                             ) {
@@ -280,6 +337,85 @@ fun ComposerV2(
     }
 }
 
+/**
+ * Full-screen call presence — a breathing orb + one live status line, replacing
+ * the text chat entirely while a voice call is active. No wall of transcript to
+ * read; the point of a call is that you're not looking at your screen.
+ */
+@Composable
+fun CallScreenBody(
+    isUserSpeaking: Boolean,
+    isThinking: Boolean,
+    amplitude: Float,
+    lastAssistantText: String,
+) {
+    val str = LocalStrings.current
+    val transition = rememberInfiniteTransition(label = "orb")
+    val breathe by transition.animateFloat(
+        initialValue = 0.94f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            androidx.compose.animation.core.tween(1400, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+            androidx.compose.animation.core.RepeatMode.Reverse,
+        ),
+        label = "breathe",
+    )
+    val orbScale by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (isUserSpeaking) 1f + (amplitude * 0.28f) else breathe,
+        animationSpec = androidx.compose.animation.core.spring(
+            dampingRatio = androidx.compose.animation.core.Spring.DampingRatioMediumBouncy,
+            stiffness = androidx.compose.animation.core.Spring.StiffnessLow,
+        ),
+        label = "orbScale",
+    )
+
+    Column(
+        Modifier.fillMaxSize().padding(horizontal = 32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Box(
+            Modifier
+                .size(180.dp)
+                .graphicsLayer { scaleX = orbScale; scaleY = orbScale }
+                .clip(androidx.compose.foundation.shape.CircleShape)
+                .background(
+                    androidx.compose.ui.graphics.Brush.radialGradient(
+                        listOf(HertzPalette.Signal.copy(alpha = 0.35f), HertzPalette.Signal.copy(alpha = 0.05f)),
+                    ),
+                )
+                .border(1.dp, HertzPalette.Signal.copy(alpha = 0.4f), androidx.compose.foundation.shape.CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            BrandMark(sizeDp = 56)
+        }
+
+        Spacer(Modifier.height(28.dp))
+
+        Text(
+            when {
+                isUserSpeaking -> str.callListening
+                isThinking -> str.callThinking
+                else -> str.callReady
+            },
+            style = MaterialTheme.typography.titleLarge.copy(color = Color.White),
+        )
+
+        Spacer(Modifier.height(18.dp))
+        DictationWaveform(rms = if (isUserSpeaking) amplitude else 0f, modifier = Modifier.fillMaxWidth(0.7f))
+
+        if (!isUserSpeaking && !isThinking && lastAssistantText.isNotBlank()) {
+            Spacer(Modifier.height(22.dp))
+            Text(
+                lastAssistantText,
+                style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFFA3ABD1)),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                maxLines = 4,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
 @Composable
 fun CallControls(
     isMuted: Boolean,
@@ -291,49 +427,46 @@ fun CallControls(
 ) {
     val haptics = LocalHapticFeedback.current
     val str = LocalStrings.current
-    Surface(
-        shape = RoundedCornerShape(16.dp),
-        color = Color(0xFF1A2140),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2C355C)),
-        modifier = modifier.fillMaxWidth()
+    // No card behind these — they float directly on the call screen, like a
+    // real phone call's control row, not a chat-composer-shaped box.
+    Row(
+        modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
+        // Mute — icon only; the glyph itself changes (mic vs. mic-muted), not just its tint
+        Box(
+            Modifier.size(56.dp).clip(androidx.compose.foundation.shape.CircleShape)
+                .background(if (isMuted) HertzPalette.Signal else Color(0xFF1A2140))
+                .border(1.dp, Color(0xFF2C355C), androidx.compose.foundation.shape.CircleShape)
+                .clickable { haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove); onMute(!isMuted) },
+            contentAlignment = Alignment.Center,
         ) {
-            // Mute — icon only; the glyph itself changes (mic vs. mic-muted), not just its tint
-            Box(
-                Modifier.size(56.dp).clip(RoundedCornerShape(14.dp))
-                    .background(if (isMuted) HertzPalette.Signal else Color(0xFF2C355C))
-                    .clickable { haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove); onMute(!isMuted) },
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    painterResource(if (isMuted) R.drawable.ic_mic_muted else R.drawable.ic_custom_mic),
-                    if (isMuted) str.unmute else str.mute,
-                    tint = Color.White,
-                    modifier = Modifier.size(22.dp),
-                )
-            }
-            // Pause
-            Box(
-                Modifier.size(56.dp).clip(RoundedCornerShape(14.dp))
-                    .background(if (isPaused) HertzPalette.Signal else Color(0xFF2C355C))
-                    .clickable { haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove); onPause(!isPaused) },
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(if (isPaused) Icons.Filled.Mic else Icons.Filled.Pause, if (isPaused) str.resume else str.pause, tint = Color.White, modifier = Modifier.size(22.dp))
-            }
-            // End — red, always distinct from the accent
-            Box(
-                Modifier.size(56.dp).clip(RoundedCornerShape(14.dp))
-                    .background(Color(0xFFFF3B30))
-                    .clickable { haptics.performHapticFeedback(HapticFeedbackType.LongPress); onEnd() },
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(Icons.Filled.Close, str.end, tint = Color.White, modifier = Modifier.size(22.dp))
-            }
+            Icon(
+                painterResource(if (isMuted) R.drawable.ic_mic_muted else R.drawable.ic_custom_mic),
+                if (isMuted) str.unmute else str.mute,
+                tint = Color.White,
+                modifier = Modifier.size(22.dp),
+            )
+        }
+        // End — the primary action: larger, centered, red
+        Box(
+            Modifier.size(72.dp).clip(androidx.compose.foundation.shape.CircleShape)
+                .background(Color(0xFFFF3B30))
+                .clickable { haptics.performHapticFeedback(HapticFeedbackType.LongPress); onEnd() },
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(Icons.Filled.Close, str.end, tint = Color.White, modifier = Modifier.size(26.dp))
+        }
+        // Pause
+        Box(
+            Modifier.size(56.dp).clip(androidx.compose.foundation.shape.CircleShape)
+                .background(if (isPaused) HertzPalette.Signal else Color(0xFF1A2140))
+                .border(1.dp, Color(0xFF2C355C), androidx.compose.foundation.shape.CircleShape)
+                .clickable { haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove); onPause(!isPaused) },
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(if (isPaused) Icons.Filled.Mic else Icons.Filled.Pause, if (isPaused) str.resume else str.pause, tint = Color.White, modifier = Modifier.size(22.dp))
         }
     }
 }
@@ -357,16 +490,15 @@ private fun CircleIconButton(
 
 // ── Ghost drawer — pure black, white accents, squared ──
 
+/** The shark mark — the app's actual logo/icon asset, not a placeholder glyph. */
 @Composable
-fun WaveformMark(sizeDp: Int = 22) {
-    val bars = listOf(0.45f, 0.85f, 1f, 0.62f, 0.34f)
-    Row(horizontalArrangement = Arrangement.spacedBy((sizeDp * 0.11f).dp), verticalAlignment = Alignment.CenterVertically) {
-        bars.forEach { fraction ->
-            Box(
-                Modifier.width((sizeDp * 0.14f).dp).height((sizeDp * fraction).dp.coerceAtLeast(2.dp))
-                    .background(Color.White, RoundedCornerShape(4.dp)),
-            )
-        }
+fun BrandMark(sizeDp: Int = 22) {
+    Box(Modifier.size(sizeDp.dp), contentAlignment = Alignment.Center) {
+        androidx.compose.foundation.Image(
+            painter = painterResource(R.mipmap.ic_launcher_foreground),
+            contentDescription = null,
+            modifier = Modifier.size((sizeDp * 1.7f).dp),
+        )
     }
 }
 
@@ -378,12 +510,17 @@ fun GhostChatDrawer(
     onNewGhost: () -> Unit,
     onDelete: (String) -> Unit,
     onPin: (String, Boolean) -> Unit,
+    onRename: (String, String) -> Unit,
+    onOpenNotes: () -> Unit,
     remainingUsd: Double?,
     onOpenKeys: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
     val haptics = LocalHapticFeedback.current
     val str = LocalStrings.current
+    var query by rememberSaveable { mutableStateOf("") }
+    var renameTarget by remember { mutableStateOf<ChatEntity?>(null) }
+
     Column(
         Modifier.fillMaxWidth().fillMaxHeight().background(Color(0xFF080B14))
             .statusBarsPadding().navigationBarsPadding(),
@@ -394,7 +531,7 @@ fun GhostChatDrawer(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 24.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                WaveformMark()
+                BrandMark()
                 Text("HERTZ-DS", style = MaterialTheme.typography.titleMedium.copy(letterSpacing = 2.sp, color = Color.White), modifier = Modifier.padding(start = 10.dp))
             }
             Box(
@@ -409,14 +546,51 @@ fun GhostChatDrawer(
                 Icon(Icons.Filled.Add, str.newGhostChat, tint = Color.White, modifier = Modifier.size(19.dp))
             }
         }
-        Text("${str.conversations} · ${chats.size}", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6C74A0)), modifier = Modifier.padding(start = 22.dp, top = 20.dp, bottom = 6.dp))
-        val pinned = chats.filter { it.pinned }
-        val unpinned = chats.filter { !it.pinned }
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp).clip(RoundedCornerShape(12.dp))
+                .background(Color(0xFF1A2140)).border(1.dp, Color(0xFF2C355C), RoundedCornerShape(12.dp)),
+        ) {
+            Icon(Icons.Filled.Search, null, tint = Color(0xFF6C74A0), modifier = Modifier.padding(start = 12.dp).size(16.dp))
+            BasicTextField(
+                value = query,
+                onValueChange = { query = it },
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodyMedium.copy(color = Color.White),
+                cursorBrush = androidx.compose.ui.graphics.SolidColor(Color.White),
+                modifier = Modifier.weight(1f).padding(horizontal = 10.dp, vertical = 11.dp),
+                decorationBox = { inner ->
+                    if (query.isEmpty()) Text(str.searchChats, style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6C74A0)))
+                    inner()
+                },
+            )
+            if (query.isNotEmpty()) {
+                Icon(
+                    Icons.Filled.Close, null, tint = Color(0xFF6C74A0),
+                    modifier = Modifier.padding(end = 12.dp).size(15.dp).clickable { query = "" },
+                )
+            }
+        }
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp).clip(RoundedCornerShape(12.dp))
+                .clickable { onOpenNotes() }.padding(vertical = 6.dp),
+        ) {
+            Icon(Icons.AutoMirrored.Filled.Notes, null, tint = HertzPalette.Signal, modifier = Modifier.size(18.dp))
+            Text(str.notes, style = MaterialTheme.typography.titleMedium.copy(color = Color.White), modifier = Modifier.padding(start = 10.dp))
+        }
+
+        val filtered = if (query.isBlank()) chats else chats.filter { it.title.contains(query, ignoreCase = true) }
+        Text("${str.conversations} · ${filtered.size}", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6C74A0)), modifier = Modifier.padding(start = 22.dp, top = 4.dp, bottom = 6.dp))
+        val pinned = filtered.filter { it.pinned }
+        val unpinned = filtered.filter { !it.pinned }
         val grouped = groupChatsByDate(unpinned, str)
         LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 8.dp)) {
             if (pinned.isNotEmpty()) {
                 items(pinned, key = { it.id }) { chat ->
-                    ChatRow(chat, chat.id == currentId, haptics, onSelect, onDelete)
+                    ChatRow(chat, chat.id == currentId, haptics, onSelect, onDelete, onPin, onRenameRequest = { renameTarget = chat })
                 }
             }
             grouped.forEach { (section, sectionChats) ->
@@ -428,7 +602,7 @@ fun GhostChatDrawer(
                     )
                 }
                 items(sectionChats, key = { it.id }) { chat ->
-                    ChatRow(chat, chat.id == currentId, haptics, onSelect, onDelete)
+                    ChatRow(chat, chat.id == currentId, haptics, onSelect, onDelete, onPin, onRenameRequest = { renameTarget = chat })
                 }
             }
         }
@@ -448,6 +622,14 @@ fun GhostChatDrawer(
                 contentAlignment = Alignment.Center
             ) { Icon(Icons.Filled.Settings, "Settings", tint = Color.White, modifier = Modifier.size(20.dp)) }
         }
+    }
+
+    renameTarget?.let { chat ->
+        RenameDialog(
+            initial = chat.title,
+            onRename = { newTitle -> onRename(chat.id, newTitle); renameTarget = null },
+            onDismiss = { renameTarget = null },
+        )
     }
 }
 
@@ -484,13 +666,18 @@ private fun ChatRow(
     haptics: androidx.compose.ui.hapticfeedback.HapticFeedback,
     onSelect: (String) -> Unit,
     onDelete: (String) -> Unit,
+    onPin: (String, Boolean) -> Unit,
+    onRenameRequest: () -> Unit,
 ) {
+    val str = LocalStrings.current
+    var menuOpen by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxWidth().clickable {
             haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
             onSelect(chat.id)
-        }.padding(start = 14.dp, end = 12.dp),
+        }.padding(start = 14.dp, end = 6.dp),
     ) {
         Box(
             Modifier.width(3.dp).height(38.dp)
@@ -510,14 +697,53 @@ private fun ChatRow(
             }
             Text("${Models.label(chat.model)} · $%.4f".format(chat.totalCostUsd), style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6C74A0)), modifier = Modifier.padding(top = 2.dp))
         }
-        Icon(
-            Icons.Filled.Close, "Delete",
-            tint = Color(0xFF6C74A0),
-            modifier = Modifier.size(18.dp).clip(RoundedCornerShape(8.dp)).clickable {
+        Box {
+            Icon(
+                Icons.Filled.MoreVert, str.chatOptions,
+                tint = Color(0xFF6C74A0),
+                modifier = Modifier.size(30.dp).clip(RoundedCornerShape(8.dp)).clickable {
+                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    menuOpen = true
+                }.padding(5.dp),
+            )
+            DropdownMenu(
+                expanded = menuOpen,
+                onDismissRequest = { menuOpen = false },
+                modifier = Modifier.background(Color(0xFF1A2140)),
+            ) {
+                DropdownMenuItem(
+                    text = { Text(str.renameChat, color = Color.White) },
+                    leadingIcon = { Icon(Icons.Filled.Edit, null, tint = Color.White) },
+                    onClick = { menuOpen = false; onRenameRequest() },
+                )
+                DropdownMenuItem(
+                    text = { Text(if (chat.pinned) str.unpin else str.pin, color = Color.White) },
+                    leadingIcon = { Icon(painterResource(R.drawable.ic_pin), null, tint = Color.White) },
+                    onClick = { menuOpen = false; onPin(chat.id, !chat.pinned) },
+                )
+                DropdownMenuItem(
+                    text = { Text(str.delete, color = Color(0xFFFF5A6E)) },
+                    leadingIcon = { Icon(Icons.Filled.Close, null, tint = Color(0xFFFF5A6E)) },
+                    onClick = { menuOpen = false; confirmDelete = true },
+                )
+            }
+        }
+    }
+
+    if (confirmDelete) {
+        HertzDialog(
+            title = str.delete,
+            confirmLabel = str.delete,
+            dismissLabel = str.cancel,
+            onDismiss = { confirmDelete = false },
+            onConfirm = {
                 haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                 onDelete(chat.id)
-            }.padding(3.dp),
-        )
+                confirmDelete = false
+            },
+        ) {
+            Text(chat.title, style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFFA3ABD1)))
+        }
     }
 }
 
@@ -541,31 +767,6 @@ fun NewGhostDialog(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun ModelPickerDialog(selected: String, onSelect: (String) -> Unit, onDismiss: () -> Unit) {
-    val str = LocalStrings.current
-    HertzDialog(title = str.model, dismissLabel = str.close, confirmLabel = "", onDismiss = onDismiss, onConfirm = {}) {
-        Models.ALL.forEach { id ->
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { onSelect(id) }.padding(vertical = 4.dp),
-            ) {
-                RadioButton(selected = id == selected, onClick = { onSelect(id) }, colors = RadioButtonDefaults.colors(selectedColor = HertzPalette.Signal, unselectedColor = Color(0xFF6C74A0)))
-                Column(Modifier.padding(start = 2.dp)) {
-                    Text(Models.label(id), style = MaterialTheme.typography.titleMedium.copy(color = Color.White))
-                    Text(
-                        when (id) {
-                            Models.PRO -> str.modelProDesc
-                            Models.VISION -> str.modelVisionDesc
-                            else -> str.modelFlashDesc
-                        }, style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFA3ABD1))
-                    )
-                }
-            }
-        }
-    }
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

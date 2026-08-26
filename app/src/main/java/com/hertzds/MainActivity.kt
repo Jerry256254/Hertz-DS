@@ -33,6 +33,7 @@ import androidx.navigation.compose.rememberNavController
 import com.hertzds.ui.AppVm
 import com.hertzds.ui.keys.KeysScreen
 import com.hertzds.ui.memory.MemoryScreen
+import com.hertzds.ui.notes.NotesScreen
 import com.hertzds.ui.settings.SettingsScreen
 import com.hertzds.ui.tasks.TasksScreen
 import com.hertzds.ui.theme.HertzTheme
@@ -96,8 +97,10 @@ private fun AppRoot(container: AppContainer) {
                 onOpenSettings = { navController.navigate("settings") },
                 onOpenMemory = { navController.navigate("memory") },
                 onOpenTasks = { navController.navigate("tasks") },
+                onOpenNotes = { navController.navigate("notes") },
             )
         }
+        composable("notes") { NotesScreen(container, onBack = { navController.popBackStack() }) }
         composable("keys") { KeysScreen(container, onBack = { navController.popBackStack() }) }
         composable("settings") {
             SettingsScreen(

@@ -40,7 +40,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hertzds.AppContainer
-import com.hertzds.ui.chat.WaveformMark
+import com.hertzds.ui.chat.BrandMark
 import com.hertzds.ui.theme.LocalStrings
 import com.hertzds.ui.theme.hertzSemantic
 import kotlinx.coroutines.launch
@@ -90,7 +90,7 @@ fun MemoryScreen(container: AppContainer, onBack: () -> Unit) {
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                WaveformMark(sizeDp = 26)
+                BrandMark(sizeDp = 26)
                 Text(
                     str.noMemoriesYet,
                     style = MaterialTheme.typography.headlineSmall,

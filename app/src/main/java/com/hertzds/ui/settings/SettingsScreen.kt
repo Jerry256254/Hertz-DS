@@ -143,22 +143,9 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit, onOpenKeys: () -
                         SliderRow(label = str.creativity, hint = "%.1f".format(s.temperature), value = s.temperature.toFloat(), range = 0f..2f, steps = 7) { v -> scope.launch { container.settings.setTemperature(v.toDouble()) } }
                         SliderRow(label = str.maxToolIterations, hint = "${s.maxToolIterations}", value = s.maxToolIterations.toFloat(), range = 1f..30f, steps = 28) { v -> scope.launch { container.settings.setMaxToolIterations(v.toInt()) } }
 
-                        // Auto-naming is always on — no toggle, just info
-                        Row(
-                            Modifier.fillMaxWidth().padding(vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(Modifier.weight(1f)) {
-                                Text(str.autoNameChats, style = MaterialTheme.typography.bodyLarge.copy(color = Color.White))
-                                Text(str.autoNameChatsDesc, style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6C74A0)))
-                            }
-                            Box(Modifier.size(20.dp).background(HertzPalette.Signal, RoundedCornerShape(4.dp)), contentAlignment = Alignment.Center) {
-                                Text("✓", color = Color.White, style = MaterialTheme.typography.labelSmall)
-                            }
-                        }
-
                         ToggleRow(str.webSearch, s.webSearchEnabled) { v -> scope.launch { container.settings.setWebSearchEnabled(v) } }
                         ToggleRow(str.fileTools, s.fileToolsEnabled) { v -> scope.launch { container.settings.setFileToolsEnabled(v) } }
+                        ToggleRow(str.hapticFeedback, s.hapticsEnabled) { v -> scope.launch { container.settings.setHapticsEnabled(v) } }
                         ToggleRow(str.longTermMemory, s.memoryEnabled) { v -> scope.launch { container.settings.setMemoryEnabled(v) } }
                         OutlinedButton(
                             onClick = {

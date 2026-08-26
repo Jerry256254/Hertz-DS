@@ -147,7 +147,9 @@ class AppVm(private val container: AppContainer) : ViewModel() {
     init {
         viewModelScope.launch {
             settings.filterNotNull().first { it.eulaAccepted } // gate: nothing loads before consent
-            openMostRecentChat()
+            // Land on the empty home screen, not the last chat — newChat() just
+            // marks the next send as fresh; nothing is opened or created here.
+            newChat()
             refreshCredits()
         }
     }
@@ -249,6 +251,11 @@ class AppVm(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch {
             chats.getChat(chatId)?.let { chats.updateChat(it.copy(model = model)) }
         }
+    }
+
+    /** Used from the home screen, before any chat exists to attach a per-chat model to. */
+    fun setDefaultModel(model: String) {
+        viewModelScope.launch { container.settings.setDefaultModel(model) }
     }
 
     fun setChatTools(chatId: String, enabled: Boolean) {
@@ -443,18 +450,87 @@ class AppVm(private val container: AppContainer) : ViewModel() {
         if (finalText.isBlank() && ttsEnabled) voice.stopSpeaking()
 
         maybeAutoName(chatId)
+        maybeUpdateProfile(chatId, s)
         return finalText
+    }
+
+    private var lastTtsFallbackWarnAt = 0L
+
+    /** At most one "offline voice didn't work" notice every few minutes — never spam per sentence. */
+    private fun warnTtsFallback(reason: String?) {
+        if (reason == null) return
+        val now = System.currentTimeMillis()
+        if (now - lastTtsFallbackWarnAt < 3 * 60_000L) return
+        lastTtsFallbackWarnAt = now
+        _snackbar.value = "TTS_FALLBACK:$reason"
     }
 
     private fun launchSpeaker(queue: Channel<String>, s: Settings) = viewModelScope.launch {
         for (sentence in queue) {
             runCatching { voice.speak(sentence, s) }
+                .onSuccess { reason -> warnTtsFallback(reason) }
                 .onFailure { _snackbar.value = "TTS: ${it.message}" }
         }
     }
 
     private suspend fun refreshCredits() {
         _remainingUsd.value = runCatching { keys.totalRemainingUsd() }.getOrNull()
+    }
+
+    /**
+     * Keeps one running, pinned "user profile" memory up to date — preferences,
+     * ongoing projects, tone, anything durable — instead of relying entirely on
+     * the model remembering to call the `remember` tool mid-chat. Runs every
+     * few user turns on the cheap flash model; ghost chats are skipped since
+     * they promise not to touch long-term memory at all.
+     */
+    private fun maybeUpdateProfile(chatId: String, s: Settings) {
+        if (!s.memoryEnabled) return
+        viewModelScope.launch {
+            val chat = chats.getChat(chatId) ?: return@launch
+            if (chat.systemPrompt?.contains("ghost mode", ignoreCase = true) == true) return@launch
+            val userTurns = chats.userMessageCount(chatId)
+            if (userTurns < 1 || userTurns % 3 != 0) return@launch
+
+            val key = keys.nextKey() ?: return@launch
+            val existingProfile = container.memories.profile()?.content.orEmpty()
+            val transcript = chats.messages(chatId)
+                .filter { it.role == MessageRole.USER || it.role == MessageRole.ASSISTANT }
+                .takeLast(16)
+                .joinToString("\n") { "${it.role}: ${it.content.take(500)}" }
+
+            runCatching {
+                val response = container.deepSeekClient.complete(
+                    key.secret,
+                    ChatRequest(
+                        model = Models.FLASH,
+                        messages = listOf(
+                            ApiMessage(
+                                role = MessageRole.SYSTEM,
+                                content = kotlinx.serialization.json.JsonPrimitive(
+                                    "Maintain a running profile of the user from this conversation: preferences, " +
+                                        "communication style, ongoing projects, tools/tech they use, goals, anything " +
+                                        "durable and useful to know in future chats. Merge the EXISTING PROFILE below " +
+                                        "with anything new from the TRANSCRIPT. Output only the updated profile as " +
+                                        "short bullet points, same language as the conversation, max ~120 words. " +
+                                        "Do not invent facts that are not supported by the transcript.",
+                                ),
+                            ),
+                            ApiMessage(
+                                role = "user",
+                                content = kotlinx.serialization.json.JsonPrimitive(
+                                    "EXISTING PROFILE:\n${existingProfile.ifBlank { "(none yet)" }}\n\nTRANSCRIPT:\n$transcript",
+                                ),
+                            ),
+                        ),
+                        temperature = 0.2,
+                        maxTokens = 220,
+                    ),
+                )
+                val updated = response.choices.firstOrNull()?.message?.content?.trim().orEmpty()
+                if (updated.isNotBlank()) container.memories.upsertProfile(updated)
+            }
+        }
     }
 
     private suspend fun maybeCreditAlert(s: Settings) {
@@ -579,7 +655,7 @@ class AppVm(private val container: AppContainer) : ViewModel() {
         readJob = viewModelScope.launch {
             val s = settings.value ?: return@launch
             try {
-                voice.speak(text, s)
+                warnTtsFallback(voice.speak(text, s))
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -609,17 +685,11 @@ class AppVm(private val container: AppContainer) : ViewModel() {
         _isDictating.value = true
         _dictationPartial.value = ""
         dictationJob = viewModelScope.launch {
-            // Fake RMS pulse for waveform while real STT runs
-            val rmsJob = launch {
-                while (isActive && _isDictating.value) {
-                    _dictationRms.value = (0.15f + (Math.random() * 0.65).toFloat()).coerceIn(0f, 1f)
-                    kotlinx.coroutines.delay(80)
-                }
-            }
             try {
                 voice.listenOnce(s).collect { state ->
                     when (state) {
                         is HandsFreeState.Heard -> _dictationPartial.value = state.text
+                        is HandsFreeState.Amplitude -> _dictationRms.value = state.level
                         is HandsFreeState.Error -> {
                             _snackbar.value = state.message
                             _isDictating.value = false
@@ -628,7 +698,6 @@ class AppVm(private val container: AppContainer) : ViewModel() {
                     }
                 }
             } finally {
-                rmsJob.cancel()
                 _dictationRms.value = 0f
                 if (_isDictating.value) {
                     // Auto-stop after utterance, but keep partial for UI to insert
@@ -662,26 +731,29 @@ class AppVm(private val container: AppContainer) : ViewModel() {
         _callPaused.value = false
         _isCallUserSpeaking.value = false
         callJob = viewModelScope.launch {
-            val rmsJob = launch {
-                while (isActive && _isInCall.value) {
-                    val target = if (_isCallUserSpeaking.value || turn.value is TurnState.Running) 0.6f else 0.08f
-                    _callRms.value = target * (0.7f + (Math.random() * 0.6).toFloat())
-                    kotlinx.coroutines.delay(90)
-                }
-            }
             try {
                 while (isActive && _isInCall.value) {
                     if (_callPaused.value || _callMuted.value) {
                         _isCallUserSpeaking.value = false
+                        _callRms.value = 0f
                         kotlinx.coroutines.delay(200)
                         continue
                     }
                     _isCallUserSpeaking.value = true
-                    val heard = runCatching { voice.listenOnce(s).last() }.getOrNull()
+                    var heard: HandsFreeState? = null
+                    runCatching {
+                        voice.listenOnce(s).collect { state ->
+                            when (state) {
+                                is HandsFreeState.Amplitude -> _callRms.value = state.level
+                                else -> heard = state
+                            }
+                        }
+                    }
                     _isCallUserSpeaking.value = false
+                    _callRms.value = 0f
                     when (heard) {
                         is HandsFreeState.Heard -> {
-                            val text = heard.text.trim()
+                            val text = (heard as HandsFreeState.Heard).text.trim()
                             if (text.isBlank()) continue
                             // Barge-in: if AI is speaking, interrupt (true speech only — we check text length)
                             if (turn.value is TurnState.Running && text.length > 2) {
@@ -705,7 +777,6 @@ class AppVm(private val container: AppContainer) : ViewModel() {
                     }
                 }
             } finally {
-                rmsJob.cancel()
                 _callRms.value = 0f
                 _isCallUserSpeaking.value = false
             }

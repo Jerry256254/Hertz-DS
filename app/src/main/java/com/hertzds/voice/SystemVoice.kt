@@ -82,6 +82,8 @@ class SystemTts(context: Context) {
 sealed interface SttEvent {
     data class Partial(val text: String) : SttEvent
     data class Final(val text: String) : SttEvent
+    /** Live mic level, 0..1, from RecognitionListener.onRmsChanged. */
+    data class Rms(val level: Float) : SttEvent
     data class Error(val message: String) : SttEvent
     data object EndOfSpeech : SttEvent
 }
@@ -108,7 +110,10 @@ class SystemStt(private val context: Context) {
             object : RecognitionListener {
                 override fun onReadyForSpeech(params: Bundle?) {}
                 override fun onBeginningOfSpeech() {}
-                override fun onRmsChanged(rmsdB: Float) {}
+                override fun onRmsChanged(rmsdB: Float) {
+                    // onRmsChanged reports roughly -2 (silence) to 10 (loud); normalize to 0..1.
+                    trySend(SttEvent.Rms(((rmsdB + 2f) / 12f).coerceIn(0f, 1f)))
+                }
                 override fun onBufferReceived(buffer: ByteArray?) {}
                 override fun onEndOfSpeech() { trySend(SttEvent.EndOfSpeech) }
 

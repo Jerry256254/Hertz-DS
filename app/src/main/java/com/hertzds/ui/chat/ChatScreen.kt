@@ -35,12 +35,15 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hertzds.R
+import com.hertzds.data.repo.MessageRole
+import com.hertzds.data.repo.MessageStatus
 import com.hertzds.deepseek.Models
 import com.hertzds.ui.AppVm
 import com.hertzds.ui.HandsFreeUi
 import com.hertzds.ui.TurnState
 import com.hertzds.ui.theme.HertzPalette
 import com.hertzds.ui.theme.LocalStrings
+import com.hertzds.util.Haptics
 import kotlinx.coroutines.launch
 
 @Composable
@@ -50,13 +53,17 @@ fun ChatScreen(
     onOpenSettings: () -> Unit,
     onOpenMemory: () -> Unit,
     onOpenTasks: () -> Unit,
+    onOpenNotes: () -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
+    val vibe = remember(context) { Haptics(context) }
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val str = LocalStrings.current
 
+    val settings by vm.settings.collectAsStateWithLifecycle()
+    val hapticsEnabled = settings?.hapticsEnabled ?: true
     val chatList by vm.chatList.collectAsStateWithLifecycle()
     val currentChat by vm.currentChat.collectAsStateWithLifecycle()
     val messages by vm.messages.collectAsStateWithLifecycle()
@@ -75,7 +82,6 @@ fun ChatScreen(
 
     val snackbarHost = remember { SnackbarHostState() }
     var showNewGhostDialog by rememberSaveable { mutableStateOf(false) }
-    var showModelPicker by rememberSaveable { mutableStateOf(false) }
 
     val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (!granted) vm.showSnackbar(str.micPermissionRequired)
@@ -97,6 +103,9 @@ fun ChatScreen(
         if (message.startsWith("LOW_CREDITS:")) {
             snackbarHost.showSnackbar("${str.lowCreditsPrefix}${message.removePrefix("LOW_CREDITS:")}${str.lowCreditsSuffix}")
             vm.consumeSnackbar()
+        } else if (message.startsWith("TTS_FALLBACK:")) {
+            snackbarHost.showSnackbar(str.ttsFallbackWarning)
+            vm.consumeSnackbar()
         } else {
             snackbarHost.showSnackbar(message)
             vm.consumeSnackbar()
@@ -104,21 +113,26 @@ fun ChatScreen(
     }
 
     val listState = rememberLazyListState()
-    LaunchedEffect(messages.size, messages.lastOrNull()?.content?.length) {
-        if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
+    val visibleCount = messages.count { it.role != MessageRole.TOOL } + (if (turn is TurnState.Running) 1 else 0)
+    LaunchedEffect(visibleCount, messages.lastOrNull()?.content?.length) {
+        if (visibleCount > 0) listState.animateScrollToItem(visibleCount - 1)
     }
 
-    // A short tick when generation starts, a firmer one when it lands — the
-    // felt cue the user asked for, without buzzing on every streamed token.
+    // A firm pulse when generation starts/lands, plus a light tick for every
+    // chunk of text the AI streams in — driven off the real Vibrator, not
+    // Compose's HapticFeedbackType, which several OEMs silently swallow.
     var wasRunning by remember { mutableStateOf(false) }
     LaunchedEffect(turn) {
+        if (!hapticsEnabled) { wasRunning = turn is TurnState.Running; return@LaunchedEffect }
         val running = turn is TurnState.Running
-        if (running && !wasRunning) {
-            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-        } else if (!running && wasRunning) {
-            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-        }
+        if (running != wasRunning) vibe.strong()
         wasRunning = running
+    }
+    LaunchedEffect(messages.lastOrNull()?.content?.length, messages.lastOrNull()?.status) {
+        if (!hapticsEnabled) return@LaunchedEffect
+        val last = messages.lastOrNull() ?: return@LaunchedEffect
+        if (last.role != MessageRole.ASSISTANT) return@LaunchedEffect
+        if (last.status == MessageStatus.STREAMING && last.content.isNotEmpty()) vibe.tick()
     }
 
     ModalNavigationDrawer(
@@ -139,6 +153,8 @@ fun ChatScreen(
                     },
                     onDelete = vm::deleteChat,
                     onPin = { id, pinned -> vm.pinChat(id, pinned) },
+                    onRename = { id, title -> vm.renameChat(id, title) },
+                    onOpenNotes = { scope.launch { drawerState.close() }; onOpenNotes() },
                     remainingUsd = remainingUsd,
                     onOpenKeys = { scope.launch { drawerState.close() }; onOpenKeys() },
                     onOpenSettings = { scope.launch { drawerState.close() }; onOpenSettings() },
@@ -168,67 +184,75 @@ fun ChatScreen(
                 }
             }
 
-            Column(
-                Modifier.fillMaxSize()
-            ) {
-                // Floating islands — properly inset below status bar
-                FloatingIslands(
-                    hasChat = currentChat != null && messages.isNotEmpty(),
-                    ghostEnabled = ghostMode,
-                    onMenuClick = {
-                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        scope.launch { drawerState.open() }
-                    },
-                    onNewChat = {
-                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        vm.newChat()
-                    },
-                    onGhostToggle = { enabled ->
-                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                        vm.toggleGhostMode(enabled)
-                    },
-                    modifier = Modifier
-                        .statusBarsPadding()
-                        .padding(horizontal = 16.dp, vertical = 10.dp)
+            // Content fills the whole screen and scrolls BEHIND the glass bars
+            // above and below it, instead of being boxed between them.
+            if (isInCall) {
+                CallScreenBody(
+                    isUserSpeaking = isCallUserSpeaking,
+                    isThinking = turn is TurnState.Running,
+                    amplitude = callRms,
+                    lastAssistantText = messages.lastOrNull { it.role == MessageRole.ASSISTANT }?.content.orEmpty(),
                 )
-
-                // Messages
-                Box(Modifier.weight(1f)) {
-                    LazyColumn(
-                        state = listState,
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 12.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
-                    ) {
-                        items(messages, key = { it.id }) { message ->
-                            // In call mode, don't show full markdown — just plain
-                            MessageRow(
-                                message,
-                                isCallMode = isInCall,
-                                isReading = readingMessageId == message.id,
-                                onToggleReadAloud = {
-                                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    vm.toggleReadAloud(message.id, message.content)
-                                },
-                            )
-                        }
-                        when (val t = turn) {
-                            is TurnState.Running -> item { ToolTicker(t) }
-                            else -> Unit
-                        }
-                    }
-                    if (messages.isEmpty() && turn is TurnState.Idle && !isInCall && !isDictating) {
-                        EmptyHero(
-                            onSuggestion = { text ->
+            } else {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 118.dp, bottom = 190.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    items(messages.filter { it.role != MessageRole.TOOL }, key = { it.id }) { message ->
+                        MessageRow(
+                            message,
+                            isCallMode = false,
+                            isReading = readingMessageId == message.id,
+                            onToggleReadAloud = {
                                 haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                vm.send(text)
+                                vm.toggleReadAloud(message.id, message.content)
                             },
-                            modifier = Modifier.align(Alignment.Center).fillMaxWidth(),
                         )
                     }
+                    when (val t = turn) {
+                        is TurnState.Running -> item { ToolTicker(t) }
+                        else -> Unit
+                    }
                 }
+                if (messages.isEmpty() && turn is TurnState.Idle && !isDictating) {
+                    EmptyHero(
+                        onSuggestion = { text ->
+                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            vm.send(text)
+                        },
+                        modifier = Modifier.align(Alignment.Center).fillMaxWidth(),
+                    )
+                }
+            }
 
-                // Composer or Call controls
+            // Glass top bar — floats over the scrolling content, doesn't reserve space for it
+            FloatingIslands(
+                hasChat = currentChat != null && messages.isNotEmpty(),
+                ghostEnabled = ghostMode,
+                onMenuClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    scope.launch { drawerState.open() }
+                },
+                onNewChat = {
+                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    vm.newChat()
+                },
+                onGhostToggle = { enabled ->
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    vm.toggleGhostMode(enabled)
+                },
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .background(GlassBrush(fromTop = true))
+                    .statusBarsPadding()
+                    .padding(horizontal = 16.dp, vertical = 10.dp)
+            )
+
+            // Glass composer / call controls — floats over the scrolling content
+            Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(GlassBrush(fromTop = false))) {
                 if (isInCall) {
                     CallControls(
                         isMuted = false, // vm.callMuted.collectAsState not needed for stub
@@ -258,10 +282,13 @@ fun ChatScreen(
                             onAttach = {
                                 attachLauncher.launch(arrayOf("image/*", "text/*", "application/pdf", "application/json"))
                             },
-                            onModelClick = { showModelPicker = true },
+                            onSelectModel = { id ->
+                                val chat = currentChat
+                                if (chat != null) vm.setChatModel(chat.id, id) else vm.setDefaultModel(id)
+                            },
                             onRemoveAttachment = vm::removePendingAttachment,
                             onSend = { text ->
-                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                if (hapticsEnabled) vibe.strong()
                                 vm.stopSpeakingIfIdle()
                                 vm.send(text)
                             },
@@ -321,15 +348,6 @@ fun ChatScreen(
             },
         )
     }
-    if (showModelPicker) {
-        currentChat?.let { chat ->
-            ModelPickerDialog(
-                selected = chat.model,
-                onSelect = { vm.setChatModel(chat.id, it); showModelPicker = false },
-                onDismiss = { showModelPicker = false },
-            )
-        }
-    }
 }
 
 @Composable
@@ -350,7 +368,7 @@ private fun FloatingIslands(
         // Left island — drawer
         Surface(
             shape = RoundedCornerShape(14.dp),
-            color = Color(0xFF1A2140),
+            color = Color(0xFF1A2140).copy(alpha = 0.8f),
             border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2C355C)),
             modifier = Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).clickable(onClick = onMenuClick)
         ) {
@@ -367,7 +385,7 @@ private fun FloatingIslands(
         if (hasChat) {
             Surface(
                 shape = RoundedCornerShape(14.dp),
-                color = Color(0xFF1A2140),
+                color = Color(0xFF1A2140).copy(alpha = 0.8f),
                 border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2C355C)),
                 modifier = Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).clickable(onClick = onNewChat)
             ) {
@@ -434,7 +452,7 @@ private fun EmptyHero(onSuggestion: (String) -> Unit, modifier: Modifier = Modif
         str.suggestion3Prompt to str.suggestion3Hint,
     )
     Column(modifier.padding(horizontal = 26.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        WaveformMark(sizeDp = 34)
+        BrandMark(sizeDp = 34)
         Spacer(Modifier.height(18.dp))
         Text(str.heroTitle, style = MaterialTheme.typography.displaySmall.copy(color = Color.White), textAlign = TextAlign.Center)
         Text(

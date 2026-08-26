@@ -27,6 +27,7 @@ data class Settings(
     val temperature: Double = 0.7,
     val maxToolIterations: Int = 12,
     val autoNameChats: Boolean = true, // always on — no UI toggle
+    val hapticsEnabled: Boolean = true,
     val streamingTts: Boolean = true,
     val ttsEngine: String = "system",
     val ttsVoiceId: String? = null,
@@ -62,6 +63,7 @@ class SettingsRepository(private val context: Context) {
         val TEMPERATURE = doublePreferencesKey("temperature")
         val MAX_TOOL_ITERATIONS = intPreferencesKey("max_tool_iterations")
         val AUTO_NAME = booleanPreferencesKey("auto_name_chats")
+        val HAPTICS = booleanPreferencesKey("haptics_enabled")
         val STREAMING_TTS = booleanPreferencesKey("streaming_tts")
         val TTS_ENGINE = stringPreferencesKey("tts_engine")
         val TTS_VOICE = stringPreferencesKey("tts_voice")
@@ -97,6 +99,7 @@ class SettingsRepository(private val context: Context) {
             temperature = this[Keys.TEMPERATURE] ?: defaults.temperature,
             maxToolIterations = this[Keys.MAX_TOOL_ITERATIONS] ?: defaults.maxToolIterations,
             autoNameChats = this[Keys.AUTO_NAME] ?: defaults.autoNameChats,
+            hapticsEnabled = this[Keys.HAPTICS] ?: defaults.hapticsEnabled,
             streamingTts = this[Keys.STREAMING_TTS] ?: defaults.streamingTts,
             ttsEngine = this[Keys.TTS_ENGINE] ?: defaults.ttsEngine,
             ttsVoiceId = this[Keys.TTS_VOICE],
@@ -122,6 +125,7 @@ class SettingsRepository(private val context: Context) {
     suspend fun setTemperature(value: Double) = put { it[Keys.TEMPERATURE] = value }
     suspend fun setMaxToolIterations(value: Int) = put { it[Keys.MAX_TOOL_ITERATIONS] = value }
     suspend fun setAutoNameChats(value: Boolean) = put { it[Keys.AUTO_NAME] = value }
+    suspend fun setHapticsEnabled(value: Boolean) = put { it[Keys.HAPTICS] = value }
     suspend fun setStreamingTts(value: Boolean) = put { it[Keys.STREAMING_TTS] = value }
     suspend fun setTtsEngine(value: String) = put { it[Keys.TTS_ENGINE] = value }
     suspend fun setTtsVoice(value: String?) = put {

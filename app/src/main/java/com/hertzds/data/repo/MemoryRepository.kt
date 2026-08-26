@@ -12,7 +12,34 @@ import java.util.UUID
  */
 class MemoryRepository(private val dao: MemoryDao) {
 
+    companion object {
+        /** Fixed id so the running user-profile summary is updated in place, never duplicated. */
+        const val PROFILE_MEMORY_ID = "user-profile-global"
+    }
+
     val memories: Flow<List<MemoryEntity>> = dao.observeAll()
+
+    suspend fun profile(): MemoryEntity? = dao.get(PROFILE_MEMORY_ID)
+
+    /** Replaces the single running user-profile summary — always pinned, always global. */
+    suspend fun upsertProfile(content: String) {
+        if (content.isBlank()) return
+        val now = System.currentTimeMillis()
+        val existing = dao.get(PROFILE_MEMORY_ID)
+        dao.upsert(
+            MemoryEntity(
+                id = PROFILE_MEMORY_ID,
+                chatId = null,
+                title = "User profile",
+                content = content.trim().take(2000),
+                source = "profile",
+                pinned = true,
+                useCount = existing?.useCount ?: 0,
+                createdAt = existing?.createdAt ?: now,
+                updatedAt = now,
+            ),
+        )
+    }
 
     suspend fun remember(
         title: String,

@@ -10,7 +10,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.hertzds.ui.theme.HertzPalette
-import kotlin.math.sin
 
 /**
  * Subtle fog that breathes with voice amplitude. Stays low/high, never harsh.
@@ -69,33 +68,34 @@ fun VoiceFog(
 }
 
 /**
- * Compact bar visualizer for dictation — 24 bars, height from amplitude + fake history.
+ * Live bar visualizer for dictation — a genuine rolling history of the real mic
+ * amplitude ([rms], 0..1, sourced from the platform STT's RMS callback or a raw
+ * PCM RMS computation), not a synthetic animation. New samples enter on the
+ * right and scroll left, like a real level meter.
  */
 @Composable
 fun DictationWaveform(
-    rms: Float, // 0..1
+    rms: Float, // 0..1, real mic amplitude
     modifier: Modifier = Modifier,
+    barCount: Int = 40,
 ) {
-    // generate pseudo-bars that react to rms with some randomness via time
-    val time by rememberInfiniteTransition(label = "wave").animateFloat(
-        initialValue = 0f, targetValue = (2 * Math.PI).toFloat(),
-        animationSpec = infiniteRepeatable(tween(900, easing = LinearEasing)),
-        label = "t"
-    )
+    val history = remember { androidx.compose.runtime.mutableStateListOf<Float>().apply { repeat(barCount) { add(0f) } } }
+    LaunchedEffect(rms) {
+        history.add(rms.coerceIn(0f, 1f))
+        while (history.size > barCount) history.removeAt(0)
+    }
     Row(
-        modifier.height(28.dp),
+        modifier.height(28.dp).fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(3.dp),
-        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
     ) {
-        repeat(24) { i ->
-            val phase = i * 0.6f
-            val base = 0.18f + 0.55f * ((sin(time + phase) + 1f) / 2f)
-            val h = (6 + base * 18 * (0.6f + rms)).dp
+        history.forEach { level ->
+            val animated by animateFloatAsState(targetValue = level, label = "bar")
             Box(
                 Modifier
-                    .width(3.dp)
-                    .height(h.coerceIn(3.dp, 22.dp))
-                    .background(Color.White, androidx.compose.foundation.shape.RoundedCornerShape(50))
+                    .weight(1f)
+                    .height((4 + animated * 24).dp.coerceIn(4.dp, 28.dp))
+                    .background(HertzPalette.Signal, androidx.compose.foundation.shape.RoundedCornerShape(50))
             )
         }
     }

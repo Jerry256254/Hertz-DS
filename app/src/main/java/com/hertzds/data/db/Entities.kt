@@ -130,6 +130,17 @@ data class UsageEntity(
     val createdAt: Long,
 )
 
+@Entity(tableName = "notebooks")
+data class NotebookEntity(
+    @PrimaryKey val id: String,
+    val title: String,
+    val content: String = "",
+    /** When true, this notebook's content is available to the AI as context. */
+    val sharedWithAi: Boolean = false,
+    val createdAt: Long,
+    val updatedAt: Long,
+)
+
 @Entity(tableName = "scheduled_tasks")
 data class ScheduledTaskEntity(
     @PrimaryKey val id: String,

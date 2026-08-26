@@ -26,10 +26,27 @@ sealed interface DownloadProgress {
  */
 class ModelDownloader(private val context: Context, private val http: OkHttpClient) {
 
+    companion object {
+        /** Below this, an .onnx file is a truncated/corrupt model, not a real one. */
+        private const val MIN_ONNX_BYTES = 500_000L
+    }
+
     fun modelsRoot(): File = File(context.filesDir, "voice_models").apply { mkdirs() }
 
-    fun isDownloaded(id: String, extractedDirName: String): Boolean =
-        File(File(modelsRoot(), id), extractedDirName).let { it.exists() && it.list()?.isNotEmpty() == true }
+    /**
+     * True only if the folder holds a real, complete model — not merely non-empty.
+     * A voice downloaded before atomic-extraction was added could be sitting here
+     * truncated; treating "folder exists" as "downloaded" would keep silently
+     * feeding that corrupt model to the native engine (and to speak() falling
+     * back to system TTS) forever. Checking real .onnx size lets a corrupt
+     * leftover heal itself the next time the user (re)downloads the voice.
+     */
+    fun isDownloaded(id: String, extractedDirName: String): Boolean {
+        val dir = File(File(modelsRoot(), id), extractedDirName)
+        if (!dir.exists()) return false
+        val onnxFiles = dir.listFiles { f -> f.extension == "onnx" } ?: return false
+        return onnxFiles.any { it.length() >= MIN_ONNX_BYTES }
+    }
 
     fun directoryFor(id: String, extractedDirName: String): File =
         File(File(modelsRoot(), id), extractedDirName)

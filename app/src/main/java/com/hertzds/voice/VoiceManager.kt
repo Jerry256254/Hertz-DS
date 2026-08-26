@@ -27,6 +27,8 @@ sealed interface HandsFreeState {
     data object Idle : HandsFreeState
     data object Listening : HandsFreeState
     data class Heard(val text: String) : HandsFreeState
+    /** Live mic amplitude, 0..1 — drives the dictation waveform in real time. */
+    data class Amplitude(val level: Float) : HandsFreeState
     data object Thinking : HandsFreeState
     data object Speaking : HandsFreeState
     data class Error(val message: String) : HandsFreeState
@@ -65,20 +67,38 @@ class VoiceManager(
      * work happens in the separate `:voice` process (see [VoiceEngineClient]) so
      * a native crash there can never take the app down — a failure there just
      * falls back to the system engine, same as any other speak() failure.
+     *
+     * Returns a reason string when the user picked the offline voice but this
+     * call silently degraded to the system engine instead, so the caller can
+     * surface *why* — rather than the offline voice just quietly never being
+     * used, which otherwise looks like "TTS doesn't work" with no clue as to why.
      */
-    suspend fun speak(text: String, settings: Settings) {
-        if (text.isBlank()) return
+    suspend fun speak(text: String, settings: Settings): String? {
+        if (text.isBlank()) return null
 
         if (settings.ttsEngine == "sherpa") {
             val voice = settings.ttsVoiceId?.let { voiceId ->
                 VoiceModel.PIPER_VOICES.firstOrNull { it.id == voiceId }
             }
-            if (voice != null && downloader.isDownloaded(voice.id, voice.extractedDirName)) {
-                val dir = downloader.directoryFor(voice.id, voice.extractedDirName)
-                val ok = engineClient.speak(voice.id, dir.path, text, settings.ttsSpeed)
-                if (ok) return
+            if (voice == null) {
+                speakWithSystemSentences(text, settings)
+                return "no_offline_voice_selected"
             }
+            if (!downloader.isDownloaded(voice.id, voice.extractedDirName)) {
+                speakWithSystemSentences(text, settings)
+                return "offline_voice_not_downloaded"
+            }
+            val dir = downloader.directoryFor(voice.id, voice.extractedDirName)
+            val ok = engineClient.speak(voice.id, dir.path, text, settings.ttsSpeed)
+            if (ok) return null
+            speakWithSystemSentences(text, settings)
+            return "offline_voice_engine_failed"
         }
+        speakWithSystemSentences(text, settings)
+        return null
+    }
+
+    private suspend fun speakWithSystemSentences(text: String, settings: Settings) {
         val sentences = text.split(Regex("(?<=[.!?…])\\s+")).filter { it.isNotBlank() }
         speakWithSystem(sentences, settings)
     }
@@ -161,6 +181,7 @@ class VoiceManager(
             systemStt.listen(locale.toLanguageTag()).collect { event ->
                 when (event) {
                     is SttEvent.Partial -> trySend(HandsFreeState.Heard(event.text))
+                    is SttEvent.Rms -> trySend(HandsFreeState.Amplitude(event.level))
                     is SttEvent.Final -> {
                         trySend(HandsFreeState.Heard(event.text))
                         close()
@@ -206,6 +227,8 @@ class VoiceManager(
                     val read = recorder.read(shortBuffer, 0, shortBuffer.size)
                     if (read <= 0) continue
                     val floatChunk = FloatArray(read) { shortBuffer[it] / 32768.0f }
+                    val rms = kotlin.math.sqrt(floatChunk.sumOf { (it * it).toDouble() } / floatChunk.size).toFloat()
+                    trySend(HandsFreeState.Amplitude((rms * 4f).coerceIn(0f, 1f)))
                     vad.accept(floatChunk)
                     if (vad.isSpeechDetected()) hadSpeech = true
                     speechBuffer.addAll(floatChunk.toList())

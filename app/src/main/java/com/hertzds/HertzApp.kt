@@ -91,6 +91,7 @@ class AppContainer(private val app: Application) {
     }
     val keys: ApiKeyRepository by lazy { ApiKeyRepository(database.apiKeyDao(), database.usageDao(), deepSeekClient) }
     val memories: MemoryRepository by lazy { MemoryRepository(database.memoryDao()) }
+    val notebooks: com.hertzds.data.repo.NotebookRepository by lazy { com.hertzds.data.repo.NotebookRepository(database.notebookDao()) }
 
     val toolRegistry: ToolRegistry by lazy {
         ToolRegistry(
@@ -117,7 +118,7 @@ class AppContainer(private val app: Application) {
     }
 
     val agentEngine: AgentEngine by lazy {
-        AgentEngine(app, deepSeekClient, chats, keys, memories, toolRegistry, json)
+        AgentEngine(app, deepSeekClient, chats, keys, memories, notebooks, toolRegistry, json)
     }
 
     val voiceManager: VoiceManager by lazy { VoiceManager(app, http, modelDownloader) }

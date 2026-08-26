@@ -8,6 +8,7 @@ import com.hertzds.data.repo.ApiKeyRepository
 import com.hertzds.data.repo.ChatRepository
 import com.hertzds.data.repo.MemoryRepository
 import com.hertzds.data.repo.MessageRole
+import com.hertzds.data.repo.NotebookRepository
 import com.hertzds.data.repo.MessageStatus
 import com.hertzds.deepseek.ApiMessage
 import com.hertzds.deepseek.ChatRequest
@@ -54,6 +55,7 @@ class AgentEngine(
     private val chats: ChatRepository,
     private val keys: ApiKeyRepository,
     private val memories: MemoryRepository,
+    private val notebooks: NotebookRepository,
     private val registry: ToolRegistry,
     private val json: Json,
 ) {
@@ -312,6 +314,9 @@ class AgentEngine(
             null
         }
 
+        val isGhost = chatSystemPrompt?.contains("ghost mode", ignoreCase = true) == true
+        val notesBlock = if (!isGhost) runCatching { notebooks.sharedContext() }.getOrNull() else null
+
         val systemText = buildString {
             append(chatSystemPrompt?.takeIf { it.isNotBlank() } ?: settings.defaultSystemPrompt)
             appendLine()
@@ -323,6 +328,11 @@ class AgentEngine(
                 appendLine()
                 appendLine("Long-term memory (retrieved for this turn):")
                 append(memoryBlock)
+            }
+            if (!notesBlock.isNullOrBlank()) {
+                appendLine()
+                appendLine("The user's notes (shared with you):")
+                append(notesBlock)
             }
         }
 

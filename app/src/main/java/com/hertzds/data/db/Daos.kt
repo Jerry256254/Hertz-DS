@@ -210,6 +210,24 @@ data class ModelUsageSummary(
 )
 
 @Dao
+interface NotebookDao {
+    @Query("SELECT * FROM notebooks ORDER BY updatedAt DESC")
+    fun observeAll(): Flow<List<NotebookEntity>>
+
+    @Query("SELECT * FROM notebooks WHERE id = :id")
+    suspend fun get(id: String): NotebookEntity?
+
+    @Query("SELECT * FROM notebooks WHERE sharedWithAi = 1 ORDER BY updatedAt DESC")
+    suspend fun sharedWithAi(): List<NotebookEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(notebook: NotebookEntity)
+
+    @Query("DELETE FROM notebooks WHERE id = :id")
+    suspend fun delete(id: String)
+}
+
+@Dao
 interface ScheduledTaskDao {
     @Query("SELECT * FROM scheduled_tasks ORDER BY nextRunAt ASC")
     fun observeAll(): Flow<List<ScheduledTaskEntity>>
