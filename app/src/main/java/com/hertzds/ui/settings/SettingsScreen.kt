@@ -56,7 +56,7 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit, onOpenKeys: () -
     var aboutExpanded by rememberSaveable { mutableStateOf(false) }
 
     Column(
-        Modifier.fillMaxSize().background(Color(0xFF080B14)).statusBarsPadding()
+        Modifier.fillMaxSize().background(Color(0xFF0A0A0A)).statusBarsPadding()
     ) {
         // Header — gently squared, white on black
         Row(
@@ -64,7 +64,7 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit, onOpenKeys: () -
             modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp)
         ) {
             Box(
-                Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(Color(0xFF1A2140)).border(1.dp, Color(0xFF2C355C), RoundedCornerShape(14.dp))
+                Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(Color(0xFF1E1E1E)).border(1.dp, Color(0xFF2A2A2A), RoundedCornerShape(14.dp))
                     .clickable { haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove); onBack() },
                 contentAlignment = Alignment.Center
             ) {
@@ -81,8 +81,8 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit, onOpenKeys: () -
             // Language — always visible, top-level (not collapsible: it's fundamental)
             item {
                 Column(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Color(0xFF10152A))
-                        .border(1.dp, Color(0xFF2C355C), RoundedCornerShape(16.dp)).padding(horizontal = 16.dp, vertical = 14.dp)
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Color(0xFF141414))
+                        .border(1.dp, Color(0xFF2A2A2A), RoundedCornerShape(16.dp)).padding(horizontal = 16.dp, vertical = 14.dp)
                 ) {
                     ChoiceRow(
                         label = str.language,
@@ -109,7 +109,7 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit, onOpenKeys: () -
                     onToggle = { keysExpanded = !keysExpanded; haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove) }
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
-                        Text(str.manageKeysDesc, style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFA3ABD1)))
+                        Text(str.manageKeysDesc, style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFA8A8A8)))
                         OutlinedButton(
                             onClick = {
                                 haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -181,7 +181,7 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit, onOpenKeys: () -
                             SttModelSection(container, s.sttModelId) { id -> scope.launch { container.settings.setSttModel(id) } }
                             VadSection(container)
                         }
-                        Text(str.voiceModesHint, style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6C74A0)), modifier = Modifier.padding(top = 6.dp))
+                        Text(str.voiceModesHint, style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6E6E6E)), modifier = Modifier.padding(top = 6.dp))
                     }
                 }
             }
@@ -198,12 +198,12 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit, onOpenKeys: () -
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 Text(str.version, style = MaterialTheme.typography.bodyLarge.copy(color = Color.White))
-                                Text(BuildConfig.VERSION_NAME + " (${BuildConfig.VERSION_CODE})", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFA3ABD1)))
+                                Text(BuildConfig.VERSION_NAME + " (${BuildConfig.VERSION_CODE})", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFA8A8A8)))
                             }
                             UpdateCheckButton(str)
                         }
 
-                        HorizontalDivider(color = Color(0xFF1A2140))
+                        HorizontalDivider(color = Color(0xFF1E1E1E))
 
                         TextButton(
                             onClick = {
@@ -227,7 +227,7 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit, onOpenKeys: () -
 
                         Text(
                             str.openSourceNotice,
-                            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6C74A0)),
+                            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6E6E6E)),
                             modifier = Modifier.padding(top = 4.dp)
                         )
                     }
@@ -280,7 +280,7 @@ private fun UpdateCheckButton(str: com.hertzds.ui.theme.Strings) {
             colors = ButtonDefaults.outlinedButtonColors(contentColor = HertzPalette.Signal)
         ) { Text(str.updateAvailable) }
     } else {
-        Text(str.upToDate, style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6C74A0)))
+        Text(str.upToDate, style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6E6E6E)))
     }
 }
 
@@ -293,7 +293,7 @@ private fun ExpandableSection(
     content: @Composable () -> Unit
 ) {
     Column(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Color(0xFF10152A)).border(1.dp, Color(0xFF2C355C), RoundedCornerShape(16.dp))
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Color(0xFF141414)).border(1.dp, Color(0xFF2A2A2A), RoundedCornerShape(16.dp))
     ) {
         Row(
             Modifier.fillMaxWidth().clickable(onClick = onToggle).padding(horizontal = 16.dp, vertical = 14.dp),
@@ -301,7 +301,7 @@ private fun ExpandableSection(
         ) {
             Column(Modifier.weight(1f)) {
                 Text(title, style = MaterialTheme.typography.titleMedium.copy(color = Color.White))
-                Text(subtitle, style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFA3ABD1)))
+                Text(subtitle, style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFA8A8A8)))
             }
             Icon(
                 if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
@@ -329,11 +329,11 @@ private fun ToggleRow(label: String, checked: Boolean, onChange: (Boolean) -> Un
             onCheckedChange = onChange,
             colors = SwitchDefaults.colors(
                 checkedTrackColor = HertzPalette.Signal,
-                checkedThumbColor = Color.White,
+                checkedThumbColor = HertzPalette.OnSignal,
                 checkedBorderColor = HertzPalette.Signal,
-                uncheckedThumbColor = Color(0xFFA3ABD1),
-                uncheckedTrackColor = Color(0xFF2C355C),
-                uncheckedBorderColor = Color(0xFF2C355C),
+                uncheckedThumbColor = Color(0xFFA8A8A8),
+                uncheckedTrackColor = Color(0xFF2A2A2A),
+                uncheckedBorderColor = Color(0xFF2A2A2A),
             ),
         )
     }
@@ -354,7 +354,7 @@ private fun ValueRow(label: String, value: String, options: List<Pair<String, St
             }
             DropdownMenu(
                 expanded = open, onDismissRequest = { open = false },
-                modifier = Modifier.background(Color(0xFF1A2140)).border(1.dp, Color(0xFF2C355C), RoundedCornerShape(12.dp))
+                modifier = Modifier.background(Color(0xFF1E1E1E)).border(1.dp, Color(0xFF2A2A2A), RoundedCornerShape(12.dp))
             ) {
                 options.forEach { (id, name) ->
                     DropdownMenuItem(
@@ -371,17 +371,17 @@ private fun ValueRow(label: String, value: String, options: List<Pair<String, St
 @Composable
 fun ChoiceRow(label: String, options: List<Pair<String, String>>, selected: String, onSelect: (String) -> Unit) {
     Column(Modifier.padding(vertical = 8.dp)) {
-        Text(label.uppercase(), style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6C74A0)))
+        Text(label.uppercase(), style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6E6E6E)))
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 7.dp)) {
             options.forEach { (value, displayLabel) ->
                 val active = value == selected
                 Box(
                     Modifier.clip(RoundedCornerShape(10.dp))
                         .background(if (active) HertzPalette.Signal else Color.Transparent)
-                        .border(1.dp, if (active) HertzPalette.Signal else Color(0xFF2C355C), RoundedCornerShape(10.dp))
+                        .border(1.dp, if (active) HertzPalette.Signal else Color(0xFF2A2A2A), RoundedCornerShape(10.dp))
                         .clickable { onSelect(value) }.padding(horizontal = 12.dp, vertical = 7.dp),
                 ) {
-                    Text(displayLabel, style = MaterialTheme.typography.labelMedium.copy(color = if (active) Color.White else Color(0xFFA3ABD1)))
+                    Text(displayLabel, style = MaterialTheme.typography.labelMedium.copy(color = if (active) HertzPalette.OnSignal else Color(0xFFA8A8A8)))
                 }
             }
         }
@@ -399,7 +399,7 @@ private fun SliderRow(label: String, hint: String, value: Float, range: ClosedFl
         Slider(
             value = local, onValueChange = { local = it }, onValueChangeFinished = { onCommit(local) },
             valueRange = range, steps = steps,
-            colors = SliderDefaults.colors(thumbColor = HertzPalette.Signal, activeTrackColor = HertzPalette.Signal, inactiveTrackColor = Color(0xFF2C355C)),
+            colors = SliderDefaults.colors(thumbColor = HertzPalette.Signal, activeTrackColor = HertzPalette.Signal, inactiveTrackColor = Color(0xFF2A2A2A)),
         )
     }
 }
@@ -411,7 +411,7 @@ private fun PromptEditor(current: String, onCommit: (String) -> Unit) {
     val str = LocalStrings.current
     Column(Modifier.padding(vertical = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(str.systemPrompt, style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6C74A0)), modifier = Modifier.weight(1f))
+            Text(str.systemPrompt, style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6E6E6E)), modifier = Modifier.weight(1f))
             TextButton(onClick = {
                 if (editing) onCommit(draft) else draft = current
                 editing = !editing
@@ -422,14 +422,14 @@ private fun PromptEditor(current: String, onCommit: (String) -> Unit) {
                 value = draft, onValueChange = { draft = it }, minLines = 4, maxLines = 12,
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    unfocusedBorderColor = Color(0xFF2C355C), focusedBorderColor = Color.White, cursorColor = Color.White,
-                    focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color(0xFF1A2140)
+                    unfocusedBorderColor = Color(0xFF2A2A2A), focusedBorderColor = Color.White, cursorColor = Color.White,
+                    focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color(0xFF1E1E1E)
                 ),
                 textStyle = MaterialTheme.typography.bodyMedium.copy(color = Color.White),
                 modifier = Modifier.fillMaxWidth(),
             )
         } else {
-            Text(current.take(140) + if (current.length > 140) "…" else "", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFA3ABD1)))
+            Text(current.take(140) + if (current.length > 140) "…" else "", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFA8A8A8)))
         }
     }
 }
@@ -502,17 +502,17 @@ private fun ModelDownloadRow(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(name, style = MaterialTheme.typography.bodyLarge.copy(color = Color.White))
-                Text("$meta · ${if (isDownloaded) str.downloaded else str.notDownloaded}", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6C74A0)))
+                Text("$meta · ${if (isDownloaded) str.downloaded else str.notDownloaded}", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6E6E6E)))
             }
             when {
                 isDownloaded && isSelected -> TextButton(onClick = onSelect) { Text(str.active, color = Color.White) }
-                isDownloaded -> TextButton(onClick = onSelect) { Text(str.select, color = Color(0xFFA3ABD1)) }
+                isDownloaded -> TextButton(onClick = onSelect) { Text(str.select, color = Color(0xFFA8A8A8)) }
                 !busy -> TextButton(onClick = onDownload) { Text(str.download, color = Color.White) }
             }
         }
         when (val p = progressState) {
             is DownloadProgress.Downloading -> DownloadBar(p.bytesRead, p.totalBytes)
-            is DownloadProgress.Extracting -> LinearProgressIndicator(Modifier.fillMaxWidth().height(3.dp), color = Color.White, trackColor = Color(0xFF2C355C))
+            is DownloadProgress.Extracting -> LinearProgressIndicator(Modifier.fillMaxWidth().height(3.dp), color = Color.White, trackColor = Color(0xFF2A2A2A))
             is DownloadProgress.Failed -> Text("${str.downloadError}: ${p.message}", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFFFF6B6B)))
             else -> Unit
         }
@@ -529,7 +529,7 @@ private fun VadSection(container: AppContainer) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
         Column(Modifier.weight(1f)) {
             Text(str.sileroVad, style = MaterialTheme.typography.bodyLarge.copy(color = Color.White))
-            Text(if (downloaded) str.sileroVadDownloaded else str.sileroVadHint, style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFA3ABD1)))
+            Text(if (downloaded) str.sileroVadDownloaded else str.sileroVadHint, style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFA8A8A8)))
         }
         if (!downloaded) {
             TextButton(
@@ -556,8 +556,8 @@ private fun VadSection(container: AppContainer) {
 private fun DownloadBar(bytesRead: Long, totalBytes: Long) {
     if (totalBytes > 0) {
         Column {
-            LinearProgressIndicator(progress = { (bytesRead.toFloat() / totalBytes).coerceIn(0f, 1f) }, trackColor = Color(0xFF2C355C), color = Color.White, modifier = Modifier.fillMaxWidth().height(3.dp))
-            Text("${bytesRead / 1024 / 1024} / ${totalBytes / 1024 / 1024} MB", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6C74A0)), modifier = Modifier.padding(top = 3.dp))
+            LinearProgressIndicator(progress = { (bytesRead.toFloat() / totalBytes).coerceIn(0f, 1f) }, trackColor = Color(0xFF2A2A2A), color = Color.White, modifier = Modifier.fillMaxWidth().height(3.dp))
+            Text("${bytesRead / 1024 / 1024} / ${totalBytes / 1024 / 1024} MB", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6E6E6E)), modifier = Modifier.padding(top = 3.dp))
         }
     } else LinearProgressIndicator(Modifier.fillMaxWidth().height(3.dp), color = Color.White)
 }

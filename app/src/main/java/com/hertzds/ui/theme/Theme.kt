@@ -21,28 +21,29 @@ import androidx.compose.ui.unit.sp
 import com.hertzds.data.prefs.ThemeMode
 
 // ─────────────────────────────────────────────────────────────────────────────
-// HERTZ-DS · "Deep Current" — dark-blue Material You Expressive, gently squared
-// Very dark navy canvas, cool light-blue type, a vivid indigo-blue signal color
-// on primary actions (send/call/active states). Squared-rounded: 12/14/16/20.
+// HERTZ-DS · "Monochrome" — black canvas, light-gray surfaces and type, white
+// as the one "accent" (primary actions are a white fill with black content —
+// no color, maximum contrast). A small functional red is kept for destructive
+// actions only, since that's a universal convention, not a brand accent.
 // ─────────────────────────────────────────────────────────────────────────────
 
 object HertzPalette {
-    // Dark — deep navy space
-    val Bg = Color(0xFF080B14)
-    val Surface = Color(0xFF10152A)
-    val SurfaceHigh = Color(0xFF1A2140)
-    val SurfaceHigher = Color(0xFF242C52)
-    val Hairline = Color(0xFF2C355C)
-    val HairlineStrong = Color(0xFF3B4570)
-    val Ink = Color(0xFFE7EAFB)           // cool light-blue-white — primary text
-    val InkMuted = Color(0xFFA3ABD1)      // muted
-    val InkFaint = Color(0xFF6C74A0)
-    val Signal = Color(0xFF0D9488)        // deep teal — primary actions (shark/ocean, not candy-blue)
-    val SignalMuted = Color(0xFF5EEAD4)
-    val OnSignal = Color(0xFFF4FFFC)      // icon/text drawn on the accent surface
-    val SignalVeil = Color(0x290D9488)    // accent veil ~16%
-    val SignalVeilStrong = Color(0x4D0D9488)
-    val Positive = Color(0xFF0D9488)      // ties "success/active" language to the accent
+    // Dark — near-black, minimal
+    val Bg = Color(0xFF0A0A0A)
+    val Surface = Color(0xFF141414)
+    val SurfaceHigh = Color(0xFF1E1E1E)
+    val SurfaceHigher = Color(0xFF272727)
+    val Hairline = Color(0xFF2A2A2A)
+    val HairlineStrong = Color(0xFF3A3A3A)
+    val Ink = Color(0xFFF2F2F2)           // light gray — primary text
+    val InkMuted = Color(0xFFA8A8A8)
+    val InkFaint = Color(0xFF6E6E6E)
+    val Signal = Color(0xFFF2F2F2)        // white — primary actions, no brand color
+    val SignalMuted = Color(0xFFC8C8C8)
+    val OnSignal = Color(0xFF0A0A0A)      // black icon/text drawn on the white accent surface
+    val SignalVeil = Color(0x29F2F2F2)    // accent veil ~16%
+    val SignalVeilStrong = Color(0x4DF2F2F2)
+    val Positive = Color(0xFFF2F2F2)      // ties "success/active" language to the accent
     val PositiveAlt = Color(0xFF9AE6B4)
     val Negative = Color(0xFFFF5A6E)
     val Warning = Color(0xFFFFC24B)
@@ -52,7 +53,7 @@ object HertzPalette {
     val SurfaceL = Color.White
     val SurfaceHighL = Color(0xFFE9EDFB)
     val HairlineL = Color(0xFFDCE1F5)
-    val InkL = Color(0xFF10152A)
+    val InkL = Color(0xFF141414)
     val InkMutedL = Color(0xFF565F86)
     val InkFaintL = Color(0xFF8790B8)
     val SignalL = Color(0xFF0F766E)

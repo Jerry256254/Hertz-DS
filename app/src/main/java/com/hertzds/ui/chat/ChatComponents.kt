@@ -63,7 +63,7 @@ import com.hertzds.ui.theme.LocalStrings
  * which Compose has no simple built-in for; this fade is the achievable part.)
  */
 fun GlassBrush(fromTop: Boolean): androidx.compose.ui.graphics.Brush {
-    val base = Color(0xFF0A0E1C)
+    val base = Color(0xFF0A0A0A)
     // Matte, not see-through: content is still perceptibly there behind it,
     // but the bar reads as a frosted surface, not clear glass.
     val edge = base.copy(alpha = 0.97f)
@@ -113,8 +113,8 @@ fun ComposerV2(
                 pendingAttachments.take(4).forEach { attachment ->
                     Surface(
                         shape = RoundedCornerShape(12.dp),
-                        color = Color(0xFF1A2140),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2C355C)),
+                        color = Color(0xFF1E1E1E),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2A2A2A)),
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -131,7 +131,7 @@ fun ComposerV2(
                             Text(attachment.name, style = MaterialTheme.typography.labelSmall.copy(color = Color.White), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 7.dp).width(84.dp))
                             Icon(
                                 Icons.Filled.Close, "Remove",
-                                tint = Color(0xFFA3ABD1),
+                                tint = Color(0xFFA8A8A8),
                                 modifier = Modifier.size(16.dp).clip(RoundedCornerShape(8.dp)).clickable { onRemoveAttachment(attachment.id) }.padding(2.dp),
                             )
                         }
@@ -145,8 +145,8 @@ fun ComposerV2(
 
         Surface(
             shape = RoundedCornerShape(26.dp),
-            color = Color(0xFF1A2140).copy(alpha = 0.92f),
-            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2C355C)),
+            color = Color(0xFF1E1E1E).copy(alpha = 0.92f),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2A2A2A)),
         ) {
             Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
                 // Row 1 — the text field, or a full-width live waveform while dictating
@@ -162,10 +162,10 @@ fun ComposerV2(
                         placeholder = {
                             Text(
                                 str.askAnything,
-                                style = MaterialTheme.typography.bodyLarge.copy(color = Color(0xFF6C74A0)),
+                                style = MaterialTheme.typography.bodyLarge.copy(color = Color(0xFF6E6E6E)),
                             )
                         },
-                        textStyle = MaterialTheme.typography.bodyLarge.copy(color = Color(0xFFE7EAFB)),
+                        textStyle = MaterialTheme.typography.bodyLarge.copy(color = Color(0xFFF2F2F2)),
                         maxLines = 8,
                         minLines = 1,
                         colors = OutlinedTextFieldDefaults.colors(
@@ -191,7 +191,7 @@ fun ComposerV2(
                         // Attach
                         Surface(
                             shape = RoundedCornerShape(16.dp),
-                            color = Color(0xFF242C52),
+                            color = Color(0xFF272727),
                             modifier = Modifier.clip(RoundedCornerShape(16.dp)).clickable(enabled = enabled) {
                                 haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 onAttach()
@@ -209,7 +209,7 @@ fun ComposerV2(
                         Box {
                             Surface(
                                 shape = RoundedCornerShape(20.dp),
-                                color = Color(0xFF242C52),
+                                color = Color(0xFF272727),
                                 modifier = Modifier.clip(RoundedCornerShape(20.dp)).clickable {
                                     haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                     modelMenuOpen = true
@@ -227,7 +227,7 @@ fun ComposerV2(
                                     )
                                     Text(
                                         if (modelMenuOpen) "▲" else "▼",
-                                        style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFFA3ABD1)),
+                                        style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFFA8A8A8)),
                                         modifier = Modifier.padding(start = 5.dp),
                                     )
                                 }
@@ -235,7 +235,7 @@ fun ComposerV2(
                             DropdownMenu(
                                 expanded = modelMenuOpen,
                                 onDismissRequest = { modelMenuOpen = false },
-                                modifier = Modifier.background(Color(0xFF1A2140)),
+                                modifier = Modifier.background(Color(0xFF1E1E1E)),
                             ) {
                                 Models.ALL.forEach { id ->
                                     DropdownMenuItem(
@@ -263,14 +263,14 @@ fun ComposerV2(
                                 }
                             ) {
                                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                    Icon(Icons.Filled.Stop, str.stop, tint = Color.White, modifier = Modifier.size(16.dp))
+                                    Icon(Icons.Filled.Stop, str.stop, tint = HertzPalette.OnSignal, modifier = Modifier.size(16.dp))
                                 }
                             }
                         } else if (draft.isBlank() && enabled) {
                             // Empty field: show dictation (mic) and call (phone) as separate buttons
                             Surface(
                                 shape = RoundedCornerShape(16.dp),
-                                color = Color(0xFF242C52),
+                                color = Color(0xFF272727),
                                 modifier = Modifier.size(40.dp).clip(RoundedCornerShape(16.dp)).clickable { onStartDictation() }
                             ) {
                                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -286,7 +286,7 @@ fun ComposerV2(
                                 }
                             ) {
                                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                    Icon(Icons.Filled.Phone, str.call, tint = Color.White, modifier = Modifier.size(18.dp))
+                                    Icon(Icons.Filled.Phone, str.call, tint = HertzPalette.OnSignal, modifier = Modifier.size(18.dp))
                                 }
                             }
                         } else {
@@ -296,7 +296,7 @@ fun ComposerV2(
                                 targetValue = if (running) Color(0xFFFF4D4D) else HertzPalette.Signal,
                                 label = "sendBg"
                             )
-                            val fg = Color.White
+                            val fg = if (running) Color.White else HertzPalette.OnSignal
                             val interaction = remember { MutableInteractionSource() }
                             val pressed by interaction.collectIsPressedAsState()
                             val scale by animateFloatAsState(
@@ -409,7 +409,7 @@ fun CallScreenBody(
             Spacer(Modifier.height(22.dp))
             Text(
                 lastAssistantText,
-                style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFFA3ABD1)),
+                style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFFA8A8A8)),
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                 maxLines = 4,
                 overflow = TextOverflow.Ellipsis,
@@ -439,15 +439,15 @@ fun CallControls(
         // Mute — icon only; the glyph itself changes (mic vs. mic-muted), not just its tint
         Box(
             Modifier.size(56.dp).clip(androidx.compose.foundation.shape.CircleShape)
-                .background(if (isMuted) HertzPalette.Signal else Color(0xFF1A2140))
-                .border(1.dp, Color(0xFF2C355C), androidx.compose.foundation.shape.CircleShape)
+                .background(if (isMuted) HertzPalette.Signal else Color(0xFF1E1E1E))
+                .border(1.dp, Color(0xFF2A2A2A), androidx.compose.foundation.shape.CircleShape)
                 .clickable { haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove); onMute(!isMuted) },
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 painterResource(if (isMuted) R.drawable.ic_mic_muted else R.drawable.ic_custom_mic),
                 if (isMuted) str.unmute else str.mute,
-                tint = Color.White,
+                tint = if (isMuted) HertzPalette.OnSignal else Color.White,
                 modifier = Modifier.size(22.dp),
             )
         }
@@ -463,12 +463,12 @@ fun CallControls(
         // Pause
         Box(
             Modifier.size(56.dp).clip(androidx.compose.foundation.shape.CircleShape)
-                .background(if (isPaused) HertzPalette.Signal else Color(0xFF1A2140))
-                .border(1.dp, Color(0xFF2C355C), androidx.compose.foundation.shape.CircleShape)
+                .background(if (isPaused) HertzPalette.Signal else Color(0xFF1E1E1E))
+                .border(1.dp, Color(0xFF2A2A2A), androidx.compose.foundation.shape.CircleShape)
                 .clickable { haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove); onPause(!isPaused) },
             contentAlignment = Alignment.Center,
         ) {
-            Icon(if (isPaused) Icons.Filled.Mic else Icons.Filled.Pause, if (isPaused) str.resume else str.pause, tint = Color.White, modifier = Modifier.size(22.dp))
+            Icon(if (isPaused) Icons.Filled.Mic else Icons.Filled.Pause, if (isPaused) str.resume else str.pause, tint = if (isPaused) HertzPalette.OnSignal else Color.White, modifier = Modifier.size(22.dp))
         }
     }
 }
@@ -524,7 +524,7 @@ fun GhostChatDrawer(
     var renameTarget by remember { mutableStateOf<ChatEntity?>(null) }
 
     Column(
-        Modifier.fillMaxWidth().fillMaxHeight().background(Color(0xFF080B14))
+        Modifier.fillMaxWidth().fillMaxHeight().background(Color(0xFF0A0A0A))
             .statusBarsPadding().navigationBarsPadding(),
     ) {
         Row(
@@ -545,16 +545,16 @@ fun GhostChatDrawer(
                     },
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Filled.Add, str.newGhostChat, tint = Color.White, modifier = Modifier.size(19.dp))
+                Icon(Icons.Filled.Add, str.newGhostChat, tint = HertzPalette.OnSignal, modifier = Modifier.size(19.dp))
             }
         }
 
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp).clip(RoundedCornerShape(12.dp))
-                .background(Color(0xFF1A2140)).border(1.dp, Color(0xFF2C355C), RoundedCornerShape(12.dp)),
+                .background(Color(0xFF1E1E1E)).border(1.dp, Color(0xFF2A2A2A), RoundedCornerShape(12.dp)),
         ) {
-            Icon(Icons.Filled.Search, null, tint = Color(0xFF6C74A0), modifier = Modifier.padding(start = 12.dp).size(16.dp))
+            Icon(Icons.Filled.Search, null, tint = Color(0xFF6E6E6E), modifier = Modifier.padding(start = 12.dp).size(16.dp))
             BasicTextField(
                 value = query,
                 onValueChange = { query = it },
@@ -563,13 +563,13 @@ fun GhostChatDrawer(
                 cursorBrush = androidx.compose.ui.graphics.SolidColor(Color.White),
                 modifier = Modifier.weight(1f).padding(horizontal = 10.dp, vertical = 11.dp),
                 decorationBox = { inner ->
-                    if (query.isEmpty()) Text(str.searchChats, style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6C74A0)))
+                    if (query.isEmpty()) Text(str.searchChats, style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6E6E6E)))
                     inner()
                 },
             )
             if (query.isNotEmpty()) {
                 Icon(
-                    Icons.Filled.Close, null, tint = Color(0xFF6C74A0),
+                    Icons.Filled.Close, null, tint = Color(0xFF6E6E6E),
                     modifier = Modifier.padding(end = 12.dp).size(15.dp).clickable { query = "" },
                 )
             }
@@ -585,7 +585,7 @@ fun GhostChatDrawer(
         }
 
         val filtered = if (query.isBlank()) chats else chats.filter { it.title.contains(query, ignoreCase = true) }
-        Text("${str.conversations} · ${filtered.size}", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6C74A0)), modifier = Modifier.padding(start = 22.dp, top = 4.dp, bottom = 6.dp))
+        Text("${str.conversations} · ${filtered.size}", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6E6E6E)), modifier = Modifier.padding(start = 22.dp, top = 4.dp, bottom = 6.dp))
         val pinned = filtered.filter { it.pinned }
         val unpinned = filtered.filter { !it.pinned }
         val grouped = groupChatsByDate(unpinned, str)
@@ -599,7 +599,7 @@ fun GhostChatDrawer(
                 item(key = "header_$section") {
                     Text(
                         section,
-                        style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6C74A0)),
+                        style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6E6E6E)),
                         modifier = Modifier.padding(start = 22.dp, top = 14.dp, bottom = 4.dp),
                     )
                 }
@@ -611,16 +611,16 @@ fun GhostChatDrawer(
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(14.dp).fillMaxWidth().clip(RoundedCornerShape(14.dp))
-                .background(Color(0xFF1A2140)).border(1.dp, Color(0xFF2C355C), RoundedCornerShape(14.dp))
+                .background(Color(0xFF1E1E1E)).border(1.dp, Color(0xFF2A2A2A), RoundedCornerShape(14.dp))
                 .clickable { onOpenKeys() }.padding(horizontal = 16.dp, vertical = 13.dp),
         ) {
             Column(Modifier.weight(1f)) {
-                Text(str.credits, style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6C74A0)))
+                Text(str.credits, style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6E6E6E)))
                 Text(remainingUsd?.let { "$%.2f".format(it) } ?: "—", style = MaterialTheme.typography.titleLarge.copy(color = Color.White))
             }
             TextButton(onClick = onOpenKeys) { Text(str.manage, color = Color.White) }
             Box(
-                Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF2C355C)).clickable { onOpenSettings() },
+                Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF2A2A2A)).clickable { onOpenSettings() },
                 contentAlignment = Alignment.Center
             ) { Icon(Icons.Filled.Settings, "Settings", tint = Color.White, modifier = Modifier.size(20.dp)) }
         }
@@ -693,16 +693,16 @@ private fun ChatRow(
                 }
                 Text(
                     chat.title,
-                    style = if (active) MaterialTheme.typography.titleMedium.copy(color = Color.White) else MaterialTheme.typography.bodyMedium.copy(color = Color(0xFFA3ABD1)),
+                    style = if (active) MaterialTheme.typography.titleMedium.copy(color = Color.White) else MaterialTheme.typography.bodyMedium.copy(color = Color(0xFFA8A8A8)),
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
             }
-            Text("${Models.label(chat.model)} · $%.4f".format(chat.totalCostUsd), style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6C74A0)), modifier = Modifier.padding(top = 2.dp))
+            Text("${Models.label(chat.model)} · $%.4f".format(chat.totalCostUsd), style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6E6E6E)), modifier = Modifier.padding(top = 2.dp))
         }
         Box {
             Icon(
                 Icons.Filled.MoreVert, str.chatOptions,
-                tint = Color(0xFF6C74A0),
+                tint = Color(0xFF6E6E6E),
                 modifier = Modifier.size(30.dp).clip(RoundedCornerShape(8.dp)).clickable {
                     haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     menuOpen = true
@@ -711,7 +711,7 @@ private fun ChatRow(
             DropdownMenu(
                 expanded = menuOpen,
                 onDismissRequest = { menuOpen = false },
-                modifier = Modifier.background(Color(0xFF1A2140)),
+                modifier = Modifier.background(Color(0xFF1E1E1E)),
             ) {
                 DropdownMenuItem(
                     text = { Text(str.renameChat, color = Color.White) },
@@ -744,7 +744,7 @@ private fun ChatRow(
                 confirmDelete = false
             },
         ) {
-            Text(chat.title, style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFFA3ABD1)))
+            Text(chat.title, style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFFA8A8A8)))
         }
     }
 }
@@ -775,18 +775,18 @@ fun NewGhostDialog(
 private fun ModelDropdown(selected: String, models: List<String>, onSelect: (String) -> Unit) {
     var open by rememberSaveable { mutableStateOf(false) }
     Column {
-        Text("MODEL", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6C74A0)), modifier = Modifier.padding(bottom = 6.dp))
+        Text("MODEL", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6E6E6E)), modifier = Modifier.padding(bottom = 6.dp))
         Box {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
-                    .background(Color(0xFF1A2140)).border(1.dp, Color(0xFF2C355C), RoundedCornerShape(12.dp))
+                    .background(Color(0xFF1E1E1E)).border(1.dp, Color(0xFF2A2A2A), RoundedCornerShape(12.dp))
                     .clickable { open = true }.padding(horizontal = 14.dp, vertical = 12.dp),
             ) {
                 Text(Models.label(selected), style = MaterialTheme.typography.titleMedium.copy(color = Color.White), modifier = Modifier.weight(1f))
-                Text(if (open) "▲" else "▼", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFFA3ABD1)))
+                Text(if (open) "▲" else "▼", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFFA8A8A8)))
             }
-            DropdownMenu(expanded = open, onDismissRequest = { open = false }, modifier = Modifier.background(Color(0xFF1A2140))) {
+            DropdownMenu(expanded = open, onDismissRequest = { open = false }, modifier = Modifier.background(Color(0xFF1E1E1E))) {
                 models.forEach { candidate ->
                     DropdownMenuItem(text = { Text(Models.label(candidate), color = Color.White) }, onClick = { onSelect(candidate); open = false })
                 }
@@ -815,32 +815,32 @@ private fun HertzDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = Color(0xFF10152A),
+        containerColor = Color(0xFF141414),
         shape = RoundedCornerShape(16.dp),
         title = { Text(title, style = MaterialTheme.typography.headlineSmall.copy(color = Color.White)) },
         text = { Column(verticalArrangement = Arrangement.spacedBy(14.dp), content = content) },
         confirmButton = {
             if (confirmLabel.isNotBlank()) TextButton(onClick = onConfirm) { Text(confirmLabel, color = Color.White) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(dismissLabel, color = Color(0xFFA3ABD1)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(dismissLabel, color = Color(0xFFA8A8A8)) } },
     )
 }
 
 @Composable
 private fun DialogField(value: String, onChange: (String) -> Unit, label: String, singleLine: Boolean = false, minLines: Int = 1, maxLines: Int = 1) {
     Column {
-        Text(label.uppercase(), style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6C74A0)), modifier = Modifier.padding(bottom = 6.dp))
+        Text(label.uppercase(), style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6E6E6E)), modifier = Modifier.padding(bottom = 6.dp))
         OutlinedTextField(
             value = value, onValueChange = onChange, singleLine = singleLine, minLines = minLines, maxLines = maxLines,
             shape = RoundedCornerShape(12.dp),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = Color.White.copy(alpha = 0.6f),
-                unfocusedBorderColor = Color(0xFF2C355C),
+                unfocusedBorderColor = Color(0xFF2A2A2A),
                 focusedContainerColor = Color.Transparent,
-                unfocusedContainerColor = Color(0xFF1A2140),
+                unfocusedContainerColor = Color(0xFF1E1E1E),
                 cursorColor = Color.White,
             ),
-            textStyle = MaterialTheme.typography.bodyLarge.copy(color = Color(0xFFE7EAFB)),
+            textStyle = MaterialTheme.typography.bodyLarge.copy(color = Color(0xFFF2F2F2)),
             modifier = Modifier.fillMaxWidth(),
         )
     }

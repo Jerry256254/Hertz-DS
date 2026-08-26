@@ -28,8 +28,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -141,14 +139,6 @@ fun NotesScreen(container: AppContainer, onBack: () -> Unit, onSendToAi: (Notebo
                             maxLines = 1, overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f),
                         )
-                        if (notebook.sharedWithAi) {
-                            Text(
-                                str.shareWithAi,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(end = 10.dp),
-                            )
-                        }
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
@@ -157,11 +147,11 @@ fun NotesScreen(container: AppContainer, onBack: () -> Unit, onSendToAi: (Notebo
                                 .clickable { onSendToAi(notebook) }
                                 .padding(horizontal = 10.dp, vertical = 6.dp),
                         ) {
-                            Icon(Icons.AutoMirrored.Filled.Send, null, tint = androidx.compose.ui.graphics.Color.White, modifier = Modifier.size(13.dp))
+                            Icon(Icons.AutoMirrored.Filled.Send, null, tint = HertzPalette.OnSignal, modifier = Modifier.size(13.dp))
                             Text(
                                 str.sendToAi,
                                 style = MaterialTheme.typography.labelSmall,
-                                color = androidx.compose.ui.graphics.Color.White,
+                                color = HertzPalette.OnSignal,
                                 modifier = Modifier.padding(start = 5.dp),
                             )
                         }
@@ -193,10 +183,9 @@ private fun NotebookEditor(
     val str = LocalStrings.current
     var title by rememberSaveable(notebook.id) { mutableStateOf(notebook.title) }
     var content by rememberSaveable(notebook.id) { mutableStateOf(notebook.content) }
-    var shared by rememberSaveable(notebook.id) { mutableStateOf(notebook.sharedWithAi) }
 
-    LaunchedEffect(title, content, shared) {
-        onSave(notebook.copy(title = title.ifBlank { str.untitledNotebook }, content = content, sharedWithAi = shared))
+    LaunchedEffect(title, content) {
+        onSave(notebook.copy(title = title.ifBlank { str.untitledNotebook }, content = content))
     }
 
     Column(
@@ -220,8 +209,8 @@ private fun NotebookEditor(
                     .clickable(onClick = onSendToAi)
                     .padding(horizontal = 14.dp, vertical = 10.dp),
             ) {
-                Icon(Icons.AutoMirrored.Filled.Send, null, tint = androidx.compose.ui.graphics.Color.White, modifier = Modifier.size(15.dp))
-                Text(str.sendToAi, style = MaterialTheme.typography.labelMedium, color = androidx.compose.ui.graphics.Color.White, modifier = Modifier.padding(start = 6.dp))
+                Icon(Icons.AutoMirrored.Filled.Send, null, tint = HertzPalette.OnSignal, modifier = Modifier.size(15.dp))
+                Text(str.sendToAi, style = MaterialTheme.typography.labelMedium, color = HertzPalette.OnSignal, modifier = Modifier.padding(start = 6.dp))
             }
             Icon(
                 Icons.Filled.Close, str.delete,
@@ -244,21 +233,6 @@ private fun NotebookEditor(
                 ),
                 modifier = Modifier.fillMaxWidth(),
             )
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text(str.shareWithAi, style = MaterialTheme.typography.bodyLarge)
-                    Text(str.shareWithAiHint, style = MaterialTheme.typography.bodySmall, color = sem.faintText)
-                }
-                Switch(
-                    checked = shared,
-                    onCheckedChange = { shared = it },
-                    colors = SwitchDefaults.colors(checkedTrackColor = HertzPalette.Signal, checkedThumbColor = androidx.compose.ui.graphics.Color.White),
-                )
-            }
 
             OutlinedTextField(
                 value = content,

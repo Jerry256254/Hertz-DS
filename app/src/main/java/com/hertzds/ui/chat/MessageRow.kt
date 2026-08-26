@@ -62,12 +62,12 @@ private fun UserBubble(message: MessageEntity, modifier: Modifier) {
     Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
         Surface(
             shape = RoundedCornerShape(16.dp, 16.dp, 4.dp, 16.dp),
-            color = Color(0xFF1A2140),
-            modifier = Modifier.widthIn(max = 300.dp).border(1.dp, Color(0xFF2C355C), RoundedCornerShape(16.dp, 16.dp, 4.dp, 16.dp)),
+            color = Color(0xFF1E1E1E),
+            modifier = Modifier.widthIn(max = 300.dp).border(1.dp, Color(0xFF2A2A2A), RoundedCornerShape(16.dp, 16.dp, 4.dp, 16.dp)),
         ) {
             Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
                 if (message.content.isNotBlank()) {
-                    Text(message.content, style = MaterialTheme.typography.bodyLarge.copy(color = Color(0xFFE7EAFB)))
+                    Text(message.content, style = MaterialTheme.typography.bodyLarge.copy(color = Color(0xFFF2F2F2)))
                 }
                 if (message.status == MessageStatus.ERROR) {
                     Text("Send failed", style = MaterialTheme.typography.labelMedium.copy(color = Color(0xFFFF6B6B)), modifier = Modifier.padding(top = 4.dp))
@@ -107,7 +107,7 @@ private fun AssistantBlock(
             SignalGlyph(streaming)
             Text("HERTZ", style = MaterialTheme.typography.labelMedium.copy(color = Color.White), modifier = Modifier.padding(start = 7.dp))
             message.model?.let {
-                Text(" · ${modelShort(it)}", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6C74A0)), modifier = Modifier.padding(start = 5.dp))
+                Text(" · ${modelShort(it)}", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6E6E6E)), modifier = Modifier.padding(start = 5.dp))
             }
         }
 
@@ -118,7 +118,7 @@ private fun AssistantBlock(
         if (message.content.isNotBlank()) {
             MarkdownText(
                 markdown = message.content,
-                color = Color(0xFFE7EAFB),
+                color = Color(0xFFF2F2F2),
                 isCallMode = isCallMode,
                 modifier = Modifier.padding(top = 8.dp),
             )
@@ -140,7 +140,7 @@ private fun AssistantBlock(
             }
         }
         if (meta.isNotBlank()) {
-            Text(meta, style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6C74A0)), modifier = Modifier.padding(top = 7.dp))
+            Text(meta, style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6E6E6E)), modifier = Modifier.padding(top = 7.dp))
         }
 
         if (!isCallMode && !streaming && message.content.isNotBlank()) {
@@ -174,7 +174,7 @@ private fun MessageActionButton(icon: androidx.compose.ui.graphics.vector.ImageV
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, contentDescription, tint = Color(0xFFA3ABD1), modifier = Modifier.size(15.dp))
+        Icon(icon, contentDescription, tint = Color(0xFFA8A8A8), modifier = Modifier.size(15.dp))
     }
 }
 
@@ -205,7 +205,7 @@ fun ThinkingDots() {
     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         repeat(3) { index ->
             val alpha by transition.animateFloat(initialValue = 0.2f, targetValue = 1f, animationSpec = infiniteRepeatable(tween(600, delayMillis = index * 160), RepeatMode.Reverse), label = "dot$index")
-            Box(Modifier.size(5.dp).alpha(alpha).background(Color(0xFFA3ABD1), androidx.compose.foundation.shape.CircleShape))
+            Box(Modifier.size(5.dp).alpha(alpha).background(Color(0xFFA8A8A8), androidx.compose.foundation.shape.CircleShape))
         }
     }
 }
@@ -216,12 +216,12 @@ private fun ToolRailEntry(message: MessageEntity, modifier: Modifier) {
     val failed = message.status == MessageStatus.ERROR
     Row(modifier.fillMaxWidth().padding(vertical = 3.dp)) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(18.dp)) {
-            Box(Modifier.width(1.dp).height(9.dp).background(Color(0xFF2C355C)))
+            Box(Modifier.width(1.dp).height(9.dp).background(Color(0xFF2A2A2A)))
             Box(Modifier.size(7.dp).background(when { running -> Color.White; failed -> Color(0xFFFF6B6B); else -> Color.White }, androidx.compose.foundation.shape.CircleShape))
-            Box(Modifier.width(1.dp).height(9.dp).background(Color(0xFF2C355C)))
+            Box(Modifier.width(1.dp).height(9.dp).background(Color(0xFF2A2A2A)))
         }
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 8.dp).weight(1f)) {
-            Text(message.toolName ?: "tool", style = MaterialTheme.typography.labelMedium.copy(color = if (failed) Color(0xFFFF6B6B) else Color(0xFFA3ABD1)))
+            Text(message.toolName ?: "tool", style = MaterialTheme.typography.labelMedium.copy(color = if (failed) Color(0xFFFF6B6B) else Color(0xFFA8A8A8)))
             if (!message.error.isNullOrBlank()) {
                 Text("  ${message.error.take(64)}", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFFF6B6B).copy(alpha = 0.85f)), maxLines = 2)
             }
@@ -235,13 +235,13 @@ private fun ReasoningDisclosure(reasoning: String, modifier: Modifier = Modifier
     val str = LocalStrings.current
     Column(modifier.animateContentSize()) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { expanded = !expanded }.padding(vertical = 2.dp)) {
-            Box(Modifier.size(4.dp).background(Color(0xFF6C74A0), androidx.compose.foundation.shape.CircleShape))
-            Text(str.insideHead, style = MaterialTheme.typography.labelSmall.copy(fontStyle = FontStyle.Italic, color = Color(0xFF6C74A0)), modifier = Modifier.padding(start = 7.dp))
+            Box(Modifier.size(4.dp).background(Color(0xFF6E6E6E), androidx.compose.foundation.shape.CircleShape))
+            Text(str.insideHead, style = MaterialTheme.typography.labelSmall.copy(fontStyle = FontStyle.Italic, color = Color(0xFF6E6E6E)), modifier = Modifier.padding(start = 7.dp))
         }
         if (expanded) {
             Box(
-                Modifier.padding(start = 1.dp, top = 4.dp).border(1.dp, Color(0xFF2C355C), RoundedCornerShape(12.dp)).padding(horizontal = 12.dp, vertical = 9.dp),
-            ) { Text(reasoning, style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic, color = Color(0xFFA3ABD1))) }
+                Modifier.padding(start = 1.dp, top = 4.dp).border(1.dp, Color(0xFF2A2A2A), RoundedCornerShape(12.dp)).padding(horizontal = 12.dp, vertical = 9.dp),
+            ) { Text(reasoning, style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic, color = Color(0xFFA8A8A8))) }
         }
     }
 }
@@ -284,7 +284,7 @@ fun MarkdownText(markdown: String, color: Color, isCallMode: Boolean = false, mo
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         block.items.forEachIndexed { idx, item ->
                             Row(modifier = Modifier.fillMaxWidth()) {
-                                Text("${idx + 1}.", color = Color(0xFFA3ABD1), modifier = Modifier.padding(end = 8.dp).width(22.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End, style = MaterialTheme.typography.bodyLarge.copy(lineHeight = 24.sp))
+                                Text("${idx + 1}.", color = Color(0xFFA8A8A8), modifier = Modifier.padding(end = 8.dp).width(22.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End, style = MaterialTheme.typography.bodyLarge.copy(lineHeight = 24.sp))
                                 Text(inlineMd(item), style = MaterialTheme.typography.bodyLarge.copy(color = color, lineHeight = 24.sp), modifier = Modifier.weight(1f))
                             }
                         }
@@ -293,15 +293,15 @@ fun MarkdownText(markdown: String, color: Color, isCallMode: Boolean = false, mo
                 is Block.Code -> {
                     Text(
                         block.text.trimEnd('\n'),
-                        fontFamily = FontFamily.Monospace, fontSize = 13.sp, lineHeight = 19.sp, color = Color(0xFFE7EAFB),
-                        modifier = Modifier.fillMaxWidth().background(Color(0xFF1A2140), RoundedCornerShape(12.dp)).border(1.dp, Color(0xFF2C355C), RoundedCornerShape(12.dp)).padding(horizontal = 14.dp, vertical = 11.dp),
+                        fontFamily = FontFamily.Monospace, fontSize = 13.sp, lineHeight = 19.sp, color = Color(0xFFF2F2F2),
+                        modifier = Modifier.fillMaxWidth().background(Color(0xFF1E1E1E), RoundedCornerShape(12.dp)).border(1.dp, Color(0xFF2A2A2A), RoundedCornerShape(12.dp)).padding(horizontal = 14.dp, vertical = 11.dp),
                     )
                 }
                 is Block.Table -> {
                     MarkdownTable(block)
                 }
                 is Block.Divider -> {
-                    HorizontalDivider(color = Color(0xFF2C355C), thickness = 1.dp, modifier = Modifier.padding(vertical = 4.dp))
+                    HorizontalDivider(color = Color(0xFF2A2A2A), thickness = 1.dp, modifier = Modifier.padding(vertical = 4.dp))
                 }
             }
         }
@@ -435,10 +435,10 @@ private fun splitTableRow(s: String): List<String> {
 @Composable
 private fun MarkdownTable(block: Block.Table) {
     Column(
-        Modifier.fillMaxWidth().border(1.dp, Color(0xFF2C355C), RoundedCornerShape(12.dp)).clip(RoundedCornerShape(12.dp))
+        Modifier.fillMaxWidth().border(1.dp, Color(0xFF2A2A2A), RoundedCornerShape(12.dp)).clip(RoundedCornerShape(12.dp))
     ) {
         // header
-        Row(Modifier.fillMaxWidth().background(Color(0xFF1A2140)).padding(vertical = 8.dp)) {
+        Row(Modifier.fillMaxWidth().background(Color(0xFF1E1E1E)).padding(vertical = 8.dp)) {
             block.headers.forEach { h ->
                 Text(
                     inlineMd(h),
@@ -447,18 +447,18 @@ private fun MarkdownTable(block: Block.Table) {
                 )
             }
         }
-        HorizontalDivider(color = Color(0xFF2C355C), thickness = 1.dp)
+        HorizontalDivider(color = Color(0xFF2A2A2A), thickness = 1.dp)
         block.rows.forEachIndexed { idx, row ->
             Row(
                 Modifier.fillMaxWidth()
-                    .background(if (idx % 2 == 0) Color(0xFF080B14) else Color(0xFF0A0E1C))
+                    .background(if (idx % 2 == 0) Color(0xFF0A0A0A) else Color(0xFF0A0A0A))
                     .padding(vertical = 8.dp)
             ) {
                 row.forEachIndexed { colIdx, cell ->
                     val header = block.headers.getOrNull(colIdx) ?: ""
                     Text(
                         inlineMd(cell),
-                        style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFE7EAFB)),
+                        style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFF2F2F2)),
                         modifier = Modifier.weight(1f).padding(horizontal = 10.dp)
                     )
                 }
@@ -467,7 +467,7 @@ private fun MarkdownTable(block: Block.Table) {
                     Spacer(Modifier.weight(1f))
                 }
             }
-            if (idx < block.rows.lastIndex) HorizontalDivider(color = Color(0xFF1A2140), thickness = 1.dp)
+            if (idx < block.rows.lastIndex) HorizontalDivider(color = Color(0xFF1E1E1E), thickness = 1.dp)
         }
     }
 }
@@ -495,7 +495,7 @@ private fun inlineMd(text: String): AnnotatedString = buildAnnotatedString {
     val bold = SpanStyle(fontWeight = FontWeight.SemiBold, color = Color.White)
     val italic = SpanStyle(fontStyle = FontStyle.Italic)
     val underline = SpanStyle(textDecoration = TextDecoration.Underline)
-    val code = SpanStyle(fontFamily = FontFamily.Monospace, fontSize = 13.sp, background = Color(0xFF1A2140))
+    val code = SpanStyle(fontFamily = FontFamily.Monospace, fontSize = 13.sp, background = Color(0xFF1E1E1E))
     while (i < text.length) {
         when {
             text.startsWith("**", i) -> {
