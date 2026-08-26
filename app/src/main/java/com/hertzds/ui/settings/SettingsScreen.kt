@@ -41,7 +41,7 @@ import com.hertzds.voice.WhisperModel
 import kotlinx.coroutines.launch
 
 @Composable
-fun SettingsScreen(container: AppContainer, onBack: () -> Unit, onOpenKeys: () -> Unit) {
+fun SettingsScreen(container: AppContainer, onBack: () -> Unit, onOpenKeys: () -> Unit, onOpenMemory: () -> Unit) {
     val settings by container.settings.settings.collectAsStateWithLifecycle(initialValue = null)
     val s = settings ?: return
     val scope = rememberCoroutineScope()
@@ -160,6 +160,16 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit, onOpenKeys: () -
                         ToggleRow(str.webSearch, s.webSearchEnabled) { v -> scope.launch { container.settings.setWebSearchEnabled(v) } }
                         ToggleRow(str.fileTools, s.fileToolsEnabled) { v -> scope.launch { container.settings.setFileToolsEnabled(v) } }
                         ToggleRow(str.longTermMemory, s.memoryEnabled) { v -> scope.launch { container.settings.setMemoryEnabled(v) } }
+                        OutlinedButton(
+                            onClick = {
+                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                onOpenMemory()
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, HertzPalette.Signal),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = HertzPalette.Signal),
+                            modifier = Modifier.padding(top = 8.dp),
+                        ) { Text(str.manageMemory) }
                     }
                 }
             }
@@ -173,8 +183,6 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit, onOpenKeys: () -
                     onToggle = { voiceExpanded = !voiceExpanded; haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove) }
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        ToggleRow(str.streamSpeech, s.streamingTts) { v -> scope.launch { container.settings.setStreamingTts(v) } }
-
                         ChoiceRow(label = str.textToSpeech, options = listOf("system" to str.systemEngine, "sherpa" to str.piperOffline), selected = s.ttsEngine) { id -> scope.launch { container.settings.setTtsEngine(id) } }
                         if (s.ttsEngine == "sherpa") {
                             VoiceModelSection(container, s.ttsVoiceId) { id -> scope.launch { container.settings.setTtsVoice(id) } }

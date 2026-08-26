@@ -384,7 +384,10 @@ fun GhostChatDrawer(
 ) {
     val haptics = LocalHapticFeedback.current
     val str = LocalStrings.current
-    Column(Modifier.fillMaxWidth().background(Color(0xFF080B14))) {
+    Column(
+        Modifier.fillMaxWidth().fillMaxHeight().background(Color(0xFF080B14))
+            .statusBarsPadding().navigationBarsPadding(),
+    ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -407,42 +410,25 @@ fun GhostChatDrawer(
             }
         }
         Text("${str.conversations} · ${chats.size}", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6C74A0)), modifier = Modifier.padding(start = 22.dp, top = 20.dp, bottom = 6.dp))
+        val pinned = chats.filter { it.pinned }
+        val unpinned = chats.filter { !it.pinned }
+        val grouped = groupChatsByDate(unpinned, str)
         LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 8.dp)) {
-            items(chats, key = { it.id }) { chat ->
-                val active = chat.id == currentId
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth().clickable {
-                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        onSelect(chat.id)
-                    }.padding(start = 14.dp, end = 12.dp),
-                ) {
-                    Box(
-                        Modifier.width(3.dp).height(38.dp)
-                            .background(if (active) HertzPalette.Signal else Color.Transparent, RoundedCornerShape(2.dp)),
+            if (pinned.isNotEmpty()) {
+                items(pinned, key = { it.id }) { chat ->
+                    ChatRow(chat, chat.id == currentId, haptics, onSelect, onDelete)
+                }
+            }
+            grouped.forEach { (section, sectionChats) ->
+                item(key = "header_$section") {
+                    Text(
+                        section,
+                        style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6C74A0)),
+                        modifier = Modifier.padding(start = 22.dp, top = 14.dp, bottom = 4.dp),
                     )
-                    Column(Modifier.weight(1f).padding(horizontal = 12.dp, vertical = 9.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            if (chat.pinned) {
-                                Icon(painterResource(R.drawable.ic_pin), null, tint = Color.White, modifier = Modifier.size(11.dp))
-                                Spacer(Modifier.width(5.dp))
-                            }
-                            Text(
-                                chat.title,
-                                style = if (active) MaterialTheme.typography.titleMedium.copy(color = Color.White) else MaterialTheme.typography.bodyMedium.copy(color = Color(0xFFA3ABD1)),
-                                maxLines = 1, overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                        Text("${Models.label(chat.model)} · $%.4f".format(chat.totalCostUsd), style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6C74A0)), modifier = Modifier.padding(top = 2.dp))
-                    }
-                    Icon(
-                        Icons.Filled.Close, "Delete",
-                        tint = Color(0xFF6C74A0),
-                        modifier = Modifier.size(18.dp).clip(RoundedCornerShape(8.dp)).clickable {
-                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onDelete(chat.id)
-                        }.padding(3.dp),
-                    )
+                }
+                items(sectionChats, key = { it.id }) { chat ->
+                    ChatRow(chat, chat.id == currentId, haptics, onSelect, onDelete)
                 }
             }
         }
@@ -462,6 +448,76 @@ fun GhostChatDrawer(
                 contentAlignment = Alignment.Center
             ) { Icon(Icons.Filled.Settings, "Settings", tint = Color.White, modifier = Modifier.size(20.dp)) }
         }
+    }
+}
+
+/** Buckets chats by [ChatEntity.updatedAt] into DeepSeek-style sidebar sections, newest-first within each. */
+private fun groupChatsByDate(chats: List<ChatEntity>, str: com.hertzds.ui.theme.Strings): List<Pair<String, List<ChatEntity>>> {
+    val sorted = chats.sortedByDescending { it.updatedAt }
+    val now = java.util.Calendar.getInstance()
+    val startOfToday = (now.clone() as java.util.Calendar).apply {
+        set(java.util.Calendar.HOUR_OF_DAY, 0); set(java.util.Calendar.MINUTE, 0)
+        set(java.util.Calendar.SECOND, 0); set(java.util.Calendar.MILLISECOND, 0)
+    }.timeInMillis
+    val startOfYesterday = startOfToday - 86_400_000L
+    val start7d = startOfToday - 7 * 86_400_000L
+    val start30d = startOfToday - 30 * 86_400_000L
+    val buckets = linkedMapOf<String, MutableList<ChatEntity>>()
+    for (chat in sorted) {
+        val section = when {
+            chat.updatedAt >= startOfToday -> str.dateToday
+            chat.updatedAt >= startOfYesterday -> str.dateYesterday
+            chat.updatedAt >= start7d -> str.date7Days
+            chat.updatedAt >= start30d -> str.date30Days
+            else -> str.dateOlder
+        }
+        buckets.getOrPut(section) { mutableListOf() }.add(chat)
+    }
+    val order = listOf(str.dateToday, str.dateYesterday, str.date7Days, str.date30Days, str.dateOlder)
+    return order.mapNotNull { key -> buckets[key]?.let { key to it } }
+}
+
+@Composable
+private fun ChatRow(
+    chat: ChatEntity,
+    active: Boolean,
+    haptics: androidx.compose.ui.hapticfeedback.HapticFeedback,
+    onSelect: (String) -> Unit,
+    onDelete: (String) -> Unit,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth().clickable {
+            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            onSelect(chat.id)
+        }.padding(start = 14.dp, end = 12.dp),
+    ) {
+        Box(
+            Modifier.width(3.dp).height(38.dp)
+                .background(if (active) HertzPalette.Signal else Color.Transparent, RoundedCornerShape(2.dp)),
+        )
+        Column(Modifier.weight(1f).padding(horizontal = 12.dp, vertical = 9.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (chat.pinned) {
+                    Icon(painterResource(R.drawable.ic_pin), null, tint = Color.White, modifier = Modifier.size(11.dp))
+                    Spacer(Modifier.width(5.dp))
+                }
+                Text(
+                    chat.title,
+                    style = if (active) MaterialTheme.typography.titleMedium.copy(color = Color.White) else MaterialTheme.typography.bodyMedium.copy(color = Color(0xFFA3ABD1)),
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Text("${Models.label(chat.model)} · $%.4f".format(chat.totalCostUsd), style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6C74A0)), modifier = Modifier.padding(top = 2.dp))
+        }
+        Icon(
+            Icons.Filled.Close, "Delete",
+            tint = Color(0xFF6C74A0),
+            modifier = Modifier.size(18.dp).clip(RoundedCornerShape(8.dp)).clickable {
+                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                onDelete(chat.id)
+            }.padding(3.dp),
+        )
     }
 }
 

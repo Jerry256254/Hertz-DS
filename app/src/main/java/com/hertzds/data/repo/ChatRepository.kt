@@ -54,6 +54,7 @@ class ChatRepository(
         title: String,
         model: String,
         systemPrompt: String?,
+        titleIsAuto: Boolean = true,
     ): ChatEntity {
         val now = System.currentTimeMillis()
         val chat = ChatEntity(
@@ -61,6 +62,7 @@ class ChatRepository(
             title = title,
             systemPrompt = systemPrompt,
             model = model,
+            titleIsAuto = titleIsAuto,
             createdAt = now,
             updatedAt = now,
         )

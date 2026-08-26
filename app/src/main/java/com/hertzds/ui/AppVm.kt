@@ -362,6 +362,7 @@ class AppVm(private val container: AppContainer) : ViewModel() {
                     title = "Ghost — ephemeral",
                     model = s.defaultModel,
                     systemPrompt = "You are in ghost mode: do not use long-term memory tools and do not store anything. Answer only from this conversation.",
+                    titleIsAuto = false,
                 )
                 PendingChat.Fresh -> chats.createChat(title = defaultChatTitle(), model = s.defaultModel, systemPrompt = null)
                 PendingChat.None -> chats.chats.first().firstOrNull() ?: chats.ensureChat(
@@ -385,8 +386,11 @@ class AppVm(private val container: AppContainer) : ViewModel() {
 
         _turn.value = TurnState.Running()
 
-        // Sentence queue: deltas are chopped into sentences and spoken immediately.
-        val ttsEnabled = s.streamingTts
+        // Auto-speak only applies inside an active voice call — that's the whole
+        // point of call mode. A normal typed exchange never speaks on its own;
+        // reading a reply aloud is always an explicit tap on that message's
+        // Read-aloud button (toggleReadAloud).
+        val ttsEnabled = _isInCall.value
         val ttsQueue = Channel<String>(Channel.UNLIMITED)
         val ttsJob = if (ttsEnabled) launchSpeaker(ttsQueue, s) else null
         val splitter = SentenceSplitter()

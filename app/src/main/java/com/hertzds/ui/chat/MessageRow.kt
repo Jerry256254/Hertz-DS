@@ -5,8 +5,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.draw.clip
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -79,7 +77,6 @@ private fun UserBubble(message: MessageEntity, modifier: Modifier) {
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun AssistantBlock(
     message: MessageEntity,
@@ -99,20 +96,13 @@ private fun AssistantBlock(
         }
     }
 
-    Column(
-        modifier.fillMaxWidth().animateContentSize()
-            .combinedClickable(
-                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
-                indication = null,
-                onClick = {},
-                onLongClick = {
-                    if (message.content.isNotBlank()) {
-                        clipboard.setText(AnnotatedString(message.content))
-                        justCopied = true
-                    }
-                },
-            ),
-    ) {
+    // No animateContentSize() here: this block's height changes on every streamed
+    // token AND right when the message finishes (status flips to DONE, revealing
+    // the action row below). Animating that transition let the LazyColumn item's
+    // measured height lag one frame behind the real content, so the newly
+    // revealed Copy/Read-aloud row rendered clipped out of view until some other
+    // event forced a relayout — i.e. it looked like the buttons had vanished.
+    Column(modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             SignalGlyph(streaming)
             Text("HERTZ", style = MaterialTheme.typography.labelMedium.copy(color = Color.White), modifier = Modifier.padding(start = 7.dp))

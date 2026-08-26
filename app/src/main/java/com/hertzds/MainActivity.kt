@@ -104,6 +104,7 @@ private fun AppRoot(container: AppContainer) {
                 container,
                 onBack = { navController.popBackStack() },
                 onOpenKeys = { navController.navigate("keys") },
+                onOpenMemory = { navController.navigate("memory") },
             )
         }
         composable("memory") { MemoryScreen(container, onBack = { navController.popBackStack() }) }

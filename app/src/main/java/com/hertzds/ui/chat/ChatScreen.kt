@@ -108,6 +108,19 @@ fun ChatScreen(
         if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
     }
 
+    // A short tick when generation starts, a firmer one when it lands — the
+    // felt cue the user asked for, without buzzing on every streamed token.
+    var wasRunning by remember { mutableStateOf(false) }
+    LaunchedEffect(turn) {
+        val running = turn is TurnState.Running
+        if (running && !wasRunning) {
+            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        } else if (!running && wasRunning) {
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        }
+        wasRunning = running
+    }
+
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {

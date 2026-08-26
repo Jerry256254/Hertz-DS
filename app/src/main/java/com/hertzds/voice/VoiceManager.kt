@@ -44,9 +44,8 @@ class VoiceManager(
 ) {
     private val systemTts by lazy { SystemTts(context) }
     private val systemStt by lazy { SystemStt(context) }
+    private val engineClient by lazy { VoiceEngineClient(context) }
 
-    private var sherpaTts: SherpaTts? = null
-    private var sherpaTtsVoiceId: String? = null
     private var sherpaStt: SherpaStt? = null
     private var sherpaSttModelId: String? = null
     private var sherpaVad: SherpaVad? = null
@@ -61,45 +60,27 @@ class VoiceManager(
         ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
             PackageManager.PERMISSION_GRANTED
 
-    /** Speaks [text], splitting on sentence boundaries so playback starts before generation finishes. */
+    /**
+     * Speaks [text]. When the offline Piper engine is selected, the actual TTS
+     * work happens in the separate `:voice` process (see [VoiceEngineClient]) so
+     * a native crash there can never take the app down — a failure there just
+     * falls back to the system engine, same as any other speak() failure.
+     */
     suspend fun speak(text: String, settings: Settings) {
         if (text.isBlank()) return
-        val sentences = text.split(Regex("(?<=[.!?…])\\s+")).filter { it.isNotBlank() }
 
         if (settings.ttsEngine == "sherpa") {
             val voice = settings.ttsVoiceId?.let { voiceId ->
                 VoiceModel.PIPER_VOICES.firstOrNull { it.id == voiceId }
             }
-            if (voice != null && ensureSherpaTts(voice)) {
-                val sherpaOk = try {
-                    speakWithSherpa(sentences, settings.ttsSpeed)
-                    true
-                } catch (e: kotlinx.coroutines.CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    // Piper/AudioTrack can fail on specific OEM audio HALs (unsupported
-                    // PCM_FLOAT+rate combos, etc.) — fall back to the system engine
-                    // rather than let a hardware quirk crash the whole app.
-                    false
-                }
-                if (sherpaOk) return
+            if (voice != null && downloader.isDownloaded(voice.id, voice.extractedDirName)) {
+                val dir = downloader.directoryFor(voice.id, voice.extractedDirName)
+                val ok = engineClient.speak(voice.id, dir.path, text, settings.ttsSpeed)
+                if (ok) return
             }
         }
+        val sentences = text.split(Regex("(?<=[.!?…])\\s+")).filter { it.isNotBlank() }
         speakWithSystem(sentences, settings)
-    }
-
-    private suspend fun speakWithSherpa(sentences: List<String>, speed: Float) {
-        val tts = sherpaTts ?: return
-        val player = StreamingPcmPlayer(tts.sampleRate())
-        try {
-            player.start()
-            for (sentence in sentences) {
-                tts.speak(sentence, speed) { chunk -> player.write(chunk) }
-            }
-        } finally {
-            player.stop()
-            player.release()
-        }
     }
 
     private suspend fun speakWithSystem(sentences: List<String>, settings: Settings) {
@@ -124,17 +105,7 @@ class VoiceManager(
 
     fun stopSpeaking() {
         systemTts.stop()
-    }
-
-    private fun ensureSherpaTts(voice: VoiceModel.Piper): Boolean {
-        if (sherpaTts != null && sherpaTtsVoiceId == voice.id) return true
-        if (!downloader.isDownloaded(voice.id, voice.extractedDirName)) return false
-        val dir = downloader.directoryFor(voice.id, voice.extractedDirName)
-        val loaded = SherpaTts.load(dir) ?: return false
-        sherpaTts?.release()
-        sherpaTts = loaded
-        sherpaTtsVoiceId = voice.id
-        return true
+        engineClient.stop()
     }
 
     private fun ensureSherpaStt(model: WhisperModel): Boolean {
@@ -267,7 +238,7 @@ class VoiceManager(
 
     fun release() {
         systemTts.release()
-        sherpaTts?.release()
+        engineClient.release()
         sherpaStt?.release()
         sherpaVad?.release()
     }

@@ -23,5 +23,17 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!--
+          The offline Piper/sherpa-onnx TTS engine runs in its own process. It is a
+          third-party native (JNI/C++) library; if it ever segfaults, this isolates
+          the crash to a disposable background process instead of taking down the
+          whole app. The main process detects the disconnect and falls back to the
+          system TTS engine.
+        -->
+        <service
+            android:name=".voice.VoiceEngineService"
+            android:process=":voice"
+            android:exported="false" />
     </application>
 </manifest>
