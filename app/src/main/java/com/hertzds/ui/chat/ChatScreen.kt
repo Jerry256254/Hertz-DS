@@ -218,10 +218,6 @@ fun ChatScreen(
                 }
                 if (messages.isEmpty() && turn is TurnState.Idle && !isDictating) {
                     EmptyHero(
-                        onSuggestion = { text ->
-                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            vm.send(text)
-                        },
                         modifier = Modifier.align(Alignment.Center).fillMaxWidth(),
                     )
                 }
@@ -278,7 +274,7 @@ fun ChatScreen(
                         ComposerV2(
                             enabled = turn is TurnState.Idle,
                             pendingAttachments = pending,
-                            currentModel = currentChat?.model ?: Models.FLASH,
+                            currentModel = currentChat?.model ?: settings?.defaultModel ?: Models.FLASH,
                             onAttach = {
                                 attachLauncher.launch(arrayOf("image/*", "text/*", "application/pdf", "application/json"))
                             },
@@ -368,7 +364,7 @@ private fun FloatingIslands(
         // Left island — drawer
         Surface(
             shape = RoundedCornerShape(14.dp),
-            color = Color(0xFF1A2140).copy(alpha = 0.8f),
+            color = Color(0xFF1A2140).copy(alpha = 0.94f),
             border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2C355C)),
             modifier = Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).clickable(onClick = onMenuClick)
         ) {
@@ -385,7 +381,7 @@ private fun FloatingIslands(
         if (hasChat) {
             Surface(
                 shape = RoundedCornerShape(14.dp),
-                color = Color(0xFF1A2140).copy(alpha = 0.8f),
+                color = Color(0xFF1A2140).copy(alpha = 0.94f),
                 border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2C355C)),
                 modifier = Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).clickable(onClick = onNewChat)
             ) {
@@ -444,13 +440,8 @@ private fun ToolTicker(state: TurnState.Running) {
 }
 
 @Composable
-private fun EmptyHero(onSuggestion: (String) -> Unit, modifier: Modifier = Modifier) {
+private fun EmptyHero(modifier: Modifier = Modifier) {
     val str = LocalStrings.current
-    val suggestions = listOf(
-        str.suggestion1Prompt to str.suggestion1Hint,
-        str.suggestion2Prompt to str.suggestion2Hint,
-        str.suggestion3Prompt to str.suggestion3Hint,
-    )
     Column(modifier.padding(horizontal = 26.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         BrandMark(sizeDp = 34)
         Spacer(Modifier.height(18.dp))
@@ -461,22 +452,5 @@ private fun EmptyHero(onSuggestion: (String) -> Unit, modifier: Modifier = Modif
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 8.dp),
         )
-        Spacer(Modifier.height(28.dp))
-        suggestions.forEach { (prompt, hint) ->
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = Color(0xFF1A2140),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2C355C)),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 5.dp)
-                    .clickable { onSuggestion(prompt) },
-            ) {
-                Column(Modifier.padding(horizontal = 15.dp, vertical = 12.dp)) {
-                    Text(prompt, style = MaterialTheme.typography.titleMedium.copy(color = Color.White), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(hint, style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFA3ABD1)), modifier = Modifier.padding(top = 2.dp))
-                }
-            }
-        }
     }
 }

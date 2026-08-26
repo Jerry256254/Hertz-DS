@@ -3,6 +3,7 @@ package com.hertzds.ui.notes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -48,9 +50,14 @@ import com.hertzds.ui.theme.LocalStrings
 import com.hertzds.ui.theme.hertzSemantic
 import kotlinx.coroutines.launch
 
-/** A personal notepad of "notebooks" — plain notes the user can opt to share into the AI's context. */
+/**
+ * A personal notepad of "notebooks". A notebook can be passively shared into
+ * every chat's context (the toggle in the editor), or sent once: "Send to AI"
+ * starts a fresh chat with the note attached, ready for you to write your
+ * actual message around it.
+ */
 @Composable
-fun NotesScreen(container: AppContainer, onBack: () -> Unit) {
+fun NotesScreen(container: AppContainer, onBack: () -> Unit, onSendToAi: (NotebookEntity) -> Unit) {
     val scope = rememberCoroutineScope()
     val notebooks by container.notebooks.notebooks.collectAsStateWithLifecycle(initialValue = emptyList())
     var openId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -64,6 +71,7 @@ fun NotesScreen(container: AppContainer, onBack: () -> Unit) {
             onBack = { openId = null },
             onSave = { updated -> scope.launch { container.notebooks.save(updated) } },
             onDelete = { scope.launch { container.notebooks.delete(editing.id) }; openId = null },
+            onSendToAi = { onSendToAi(editing) },
         )
         return
     }
@@ -138,6 +146,23 @@ fun NotesScreen(container: AppContainer, onBack: () -> Unit) {
                                 str.shareWithAi,
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(end = 10.dp),
+                            )
+                        }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(HertzPalette.Signal)
+                                .clickable { onSendToAi(notebook) }
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.Send, null, tint = androidx.compose.ui.graphics.Color.White, modifier = Modifier.size(13.dp))
+                            Text(
+                                str.sendToAi,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = androidx.compose.ui.graphics.Color.White,
+                                modifier = Modifier.padding(start = 5.dp),
                             )
                         }
                     }
@@ -162,6 +187,7 @@ private fun NotebookEditor(
     onBack: () -> Unit,
     onSave: (NotebookEntity) -> Unit,
     onDelete: () -> Unit,
+    onSendToAi: () -> Unit,
 ) {
     val sem = hertzSemantic()
     val str = LocalStrings.current
@@ -186,6 +212,17 @@ private fun NotebookEditor(
                 modifier = Modifier.size(42.dp).clickable(onClick = onBack).padding(11.dp),
             )
             Box(Modifier.weight(1f))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(HertzPalette.Signal)
+                    .clickable(onClick = onSendToAi)
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+            ) {
+                Icon(Icons.AutoMirrored.Filled.Send, null, tint = androidx.compose.ui.graphics.Color.White, modifier = Modifier.size(15.dp))
+                Text(str.sendToAi, style = MaterialTheme.typography.labelMedium, color = androidx.compose.ui.graphics.Color.White, modifier = Modifier.padding(start = 6.dp))
+            }
             Icon(
                 Icons.Filled.Close, str.delete,
                 tint = HertzPalette.Negative,

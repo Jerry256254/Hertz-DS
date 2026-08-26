@@ -11,8 +11,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
+import com.hertzds.R
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hertzds.data.prefs.ThemeMode
@@ -107,17 +110,26 @@ private fun lightScheme() = lightColorScheme(
     outlineVariant = HertzPalette.HairlineL,
 )
 
+/** The whole app's typeface — a single variable font file rendered at each weight via fontVariationSettings. */
+@OptIn(androidx.compose.ui.text.ExperimentalTextApi::class)
+val UrbanistFamily = FontFamily(
+    Font(R.font.urbanist, weight = FontWeight.Normal, variationSettings = FontVariation.Settings(FontVariation.weight(400))),
+    Font(R.font.urbanist, weight = FontWeight.Medium, variationSettings = FontVariation.Settings(FontVariation.weight(500))),
+    Font(R.font.urbanist, weight = FontWeight.SemiBold, variationSettings = FontVariation.Settings(FontVariation.weight(600))),
+    Font(R.font.urbanist, weight = FontWeight.Bold, variationSettings = FontVariation.Settings(FontVariation.weight(700))),
+)
+
 private val HertzType = androidx.compose.material3.Typography(
-    displaySmall = TextStyle(fontWeight = FontWeight.Bold, fontSize = 26.sp, lineHeight = 32.sp, letterSpacing = (-0.4).sp),
-    headlineSmall = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 21.sp, lineHeight = 27.sp, letterSpacing = (-0.2).sp),
-    titleLarge = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 17.sp, lineHeight = 23.sp),
-    titleMedium = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 15.sp, lineHeight = 20.sp),
-    bodyLarge = TextStyle(fontSize = 16.sp, lineHeight = 24.sp, letterSpacing = 0.1.sp),
-    bodyMedium = TextStyle(fontSize = 14.5.sp, lineHeight = 21.sp, letterSpacing = 0.1.sp),
-    bodySmall = TextStyle(fontSize = 13.sp, lineHeight = 18.sp, color = HertzPalette.InkMuted),
-    labelLarge = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 14.sp),
-    labelMedium = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 11.sp, letterSpacing = 0.4.sp, color = HertzPalette.InkMuted),
-    labelSmall = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 10.sp, letterSpacing = 0.5.sp, color = HertzPalette.InkFaint),
+    displaySmall = TextStyle(fontFamily = UrbanistFamily, fontWeight = FontWeight.Bold, fontSize = 26.sp, lineHeight = 32.sp, letterSpacing = (-0.4).sp),
+    headlineSmall = TextStyle(fontFamily = UrbanistFamily, fontWeight = FontWeight.SemiBold, fontSize = 21.sp, lineHeight = 27.sp, letterSpacing = (-0.2).sp),
+    titleLarge = TextStyle(fontFamily = UrbanistFamily, fontWeight = FontWeight.SemiBold, fontSize = 17.sp, lineHeight = 23.sp),
+    titleMedium = TextStyle(fontFamily = UrbanistFamily, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, lineHeight = 20.sp),
+    bodyLarge = TextStyle(fontFamily = UrbanistFamily, fontSize = 16.sp, lineHeight = 24.sp, letterSpacing = 0.1.sp),
+    bodyMedium = TextStyle(fontFamily = UrbanistFamily, fontSize = 14.5.sp, lineHeight = 21.sp, letterSpacing = 0.1.sp),
+    bodySmall = TextStyle(fontFamily = UrbanistFamily, fontSize = 13.sp, lineHeight = 18.sp, color = HertzPalette.InkMuted),
+    labelLarge = TextStyle(fontFamily = UrbanistFamily, fontWeight = FontWeight.SemiBold, fontSize = 14.sp),
+    labelMedium = TextStyle(fontFamily = UrbanistFamily, fontWeight = FontWeight.Medium, fontSize = 11.sp, letterSpacing = 0.4.sp, color = HertzPalette.InkMuted),
+    labelSmall = TextStyle(fontFamily = UrbanistFamily, fontWeight = FontWeight.Medium, fontSize = 10.sp, letterSpacing = 0.5.sp, color = HertzPalette.InkFaint),
 )
 
 // Gently squared — Material You Expressive, never pill

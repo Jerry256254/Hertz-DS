@@ -274,7 +274,7 @@ class AppVm(private val container: AppContainer) : ViewModel() {
 
     fun addAttachment(context: Context, uri: Uri) {
         viewModelScope.launch {
-            val chatId = _currentChatId.value ?: return@launch
+            val chatId = resolveOrCreateCurrentChat() ?: return@launch
             val resolver = context.contentResolver
             val (name, size) = queryMeta(resolver, uri)
             val mime = resolver.getType(uri) ?: "application/octet-stream"
@@ -322,6 +322,28 @@ class AppVm(private val container: AppContainer) : ViewModel() {
         }
     }
 
+    /** "Send to AI" from a notebook: starts a fresh chat and attaches its content, ready to send with. */
+    fun addNoteAttachment(title: String, content: String) {
+        newChat()
+        viewModelScope.launch {
+            val chatId = resolveOrCreateCurrentChat() ?: return@launch
+            val attachment = AttachmentEntity(
+                id = java.util.UUID.randomUUID().toString(),
+                messageId = null,
+                chatId = chatId,
+                uri = "note://$chatId/${java.util.UUID.randomUUID()}",
+                name = title.ifBlank { "Note" },
+                mimeType = "text/plain",
+                sizeBytes = content.toByteArray().size.toLong(),
+                kind = "text",
+                extractedText = content,
+                createdAt = System.currentTimeMillis(),
+            )
+            chats.addAttachment(attachment)
+            _pendingAttachments.value += attachment
+        }
+    }
+
     private fun queryMeta(resolver: android.content.ContentResolver, uri: Uri): Pair<String, Long> {
         var name = uri.lastPathSegment ?: "file"
         var size = 0L
@@ -357,32 +379,40 @@ class AppVm(private val container: AppContainer) : ViewModel() {
     }
 
     /**
+     * Resolves the chat to write into, creating it from [pendingChat] on first
+     * real interaction if none is open yet — used by both sending text and
+     * attaching a file, since either one is a real enough action to stop
+     * deferring chat creation for.
+     */
+    private suspend fun resolveOrCreateCurrentChat(): String? {
+        _currentChatId.value?.let { return it }
+        val s = settings.value ?: return null
+        val chat = when (pendingChat) {
+            PendingChat.Ghost -> chats.createChat(
+                title = "Ghost — ephemeral",
+                model = s.defaultModel,
+                systemPrompt = "You are in ghost mode: do not use long-term memory tools and do not store anything. Answer only from this conversation.",
+                titleIsAuto = false,
+            )
+            PendingChat.Fresh -> chats.createChat(title = defaultChatTitle(), model = s.defaultModel, systemPrompt = null)
+            PendingChat.None -> chats.chats.first().firstOrNull() ?: chats.ensureChat(
+                model = s.defaultModel,
+                systemPrompt = null,
+                fallbackTitle = defaultChatTitle(),
+            )
+        }
+        pendingChat = PendingChat.None
+        openChat(chat.id)
+        return chat.id
+    }
+
+    /**
      * One full exchange: persist the user message, drive the agent loop, speak the
      * answer sentence-by-sentence while it streams. Returns the final text.
      */
     private suspend fun runTurn(userText: String): String = sendMutex.withLock {
+        val chatId = resolveOrCreateCurrentChat() ?: return ""
         val s = settings.value ?: return ""
-        var chatId = _currentChatId.value
-        if (chatId == null) {
-            val chat = when (pendingChat) {
-                PendingChat.Ghost -> chats.createChat(
-                    title = "Ghost — ephemeral",
-                    model = s.defaultModel,
-                    systemPrompt = "You are in ghost mode: do not use long-term memory tools and do not store anything. Answer only from this conversation.",
-                    titleIsAuto = false,
-                )
-                PendingChat.Fresh -> chats.createChat(title = defaultChatTitle(), model = s.defaultModel, systemPrompt = null)
-                PendingChat.None -> chats.chats.first().firstOrNull() ?: chats.ensureChat(
-                    model = s.defaultModel,
-                    systemPrompt = null,
-                    fallbackTitle = defaultChatTitle(),
-                )
-            }
-            pendingChat = PendingChat.None
-            openChat(chat.id)
-            chatId = chat.id
-        }
-
         val userMessage = chats.newMessage(chatId, MessageRole.USER, userText)
         chats.addMessage(userMessage)
         val pendings = _pendingAttachments.value

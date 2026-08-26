@@ -64,8 +64,10 @@ import com.hertzds.ui.theme.LocalStrings
  */
 fun GlassBrush(fromTop: Boolean): androidx.compose.ui.graphics.Brush {
     val base = Color(0xFF0A0E1C)
-    val edge = base.copy(alpha = 0.94f)
-    val middle = base.copy(alpha = 0.5f)
+    // Matte, not see-through: content is still perceptibly there behind it,
+    // but the bar reads as a frosted surface, not clear glass.
+    val edge = base.copy(alpha = 0.97f)
+    val middle = base.copy(alpha = 0.82f)
     return androidx.compose.ui.graphics.Brush.verticalGradient(
         if (fromTop) listOf(edge, edge, middle) else listOf(middle, edge, edge),
     )
@@ -143,7 +145,7 @@ fun ComposerV2(
 
         Surface(
             shape = RoundedCornerShape(26.dp),
-            color = Color(0xFF1A2140).copy(alpha = 0.78f),
+            color = Color(0xFF1A2140).copy(alpha = 0.92f),
             border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2C355C)),
         ) {
             Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
@@ -188,9 +190,9 @@ fun ComposerV2(
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         // Attach
                         Surface(
-                            shape = androidx.compose.foundation.shape.CircleShape,
+                            shape = RoundedCornerShape(16.dp),
                             color = Color(0xFF242C52),
-                            modifier = Modifier.clip(androidx.compose.foundation.shape.CircleShape).clickable(enabled = enabled) {
+                            modifier = Modifier.clip(RoundedCornerShape(16.dp)).clickable(enabled = enabled) {
                                 haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 onAttach()
                             }
@@ -250,9 +252,9 @@ fun ComposerV2(
                         if (isDictating) {
                             // Stop dictation — inserts into text, does not auto-send
                             Surface(
-                                shape = androidx.compose.foundation.shape.CircleShape,
+                                shape = RoundedCornerShape(16.dp),
                                 color = HertzPalette.Signal,
-                                modifier = Modifier.size(40.dp).clip(androidx.compose.foundation.shape.CircleShape).clickable {
+                                modifier = Modifier.size(40.dp).clip(RoundedCornerShape(16.dp)).clickable {
                                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                     val inserted = dictationBuffer
                                     draft = (draft + (if (draft.isNotBlank() && inserted.isNotBlank()) " " else "") + inserted).trim()
@@ -267,18 +269,18 @@ fun ComposerV2(
                         } else if (draft.isBlank() && enabled) {
                             // Empty field: show dictation (mic) and call (phone) as separate buttons
                             Surface(
-                                shape = androidx.compose.foundation.shape.CircleShape,
+                                shape = RoundedCornerShape(16.dp),
                                 color = Color(0xFF242C52),
-                                modifier = Modifier.size(40.dp).clip(androidx.compose.foundation.shape.CircleShape).clickable { onStartDictation() }
+                                modifier = Modifier.size(40.dp).clip(RoundedCornerShape(16.dp)).clickable { onStartDictation() }
                             ) {
                                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                     Icon(painterResource(R.drawable.ic_custom_mic), str.dictate, tint = Color.White, modifier = Modifier.size(20.dp))
                                 }
                             }
                             Surface(
-                                shape = androidx.compose.foundation.shape.CircleShape,
+                                shape = RoundedCornerShape(16.dp),
                                 color = HertzPalette.Signal,
-                                modifier = Modifier.size(40.dp).clip(androidx.compose.foundation.shape.CircleShape).clickable {
+                                modifier = Modifier.size(40.dp).clip(RoundedCornerShape(16.dp)).clickable {
                                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                     onStartCall()
                                 }
@@ -303,12 +305,12 @@ fun ComposerV2(
                                 label = "sendScale",
                             )
                             Surface(
-                                shape = androidx.compose.foundation.shape.CircleShape,
+                                shape = RoundedCornerShape(16.dp),
                                 color = bg,
                                 modifier = Modifier
                                     .size(40.dp)
                                     .graphicsLayer { scaleX = scale; scaleY = scale }
-                                    .clip(androidx.compose.foundation.shape.CircleShape)
+                                    .clip(RoundedCornerShape(16.dp))
                                     .clickable(interactionSource = interaction, indication = null) {
                                         haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                         when {

@@ -100,7 +100,16 @@ private fun AppRoot(container: AppContainer) {
                 onOpenNotes = { navController.navigate("notes") },
             )
         }
-        composable("notes") { NotesScreen(container, onBack = { navController.popBackStack() }) }
+        composable("notes") {
+            NotesScreen(
+                container,
+                onBack = { navController.popBackStack() },
+                onSendToAi = { notebook ->
+                    vm.addNoteAttachment(notebook.title, notebook.content)
+                    navController.popBackStack()
+                },
+            )
+        }
         composable("keys") { KeysScreen(container, onBack = { navController.popBackStack() }) }
         composable("settings") {
             SettingsScreen(

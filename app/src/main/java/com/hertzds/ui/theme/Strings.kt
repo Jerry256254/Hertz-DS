@@ -183,6 +183,7 @@ data class Strings(
     val shareWithAi: String,
     val shareWithAiHint: String,
     val untitledNotebook: String,
+    val sendToAi: String,
 
     // Tasks screen
     val scheduledTasks: String,
@@ -346,6 +347,7 @@ data class Strings(
             shareWithAi = "Share with AI",
             shareWithAiHint = "The AI can read this notebook's content in every chat.",
             untitledNotebook = "Untitled",
+            sendToAi = "Send to AI",
             scheduledTasks = "Scheduled tasks",
             noTasks = "No tasks",
             noTasksHint = "Tell the agent: \"summarize the news for me every morning at 7:30\" —\nit schedules itself via the schedule_task tool.",
@@ -511,6 +513,7 @@ data class Strings(
             shareWithAi = "Sdílet s AI",
             shareWithAiHint = "AI vidí obsah tohoto sešitu v každém chatu.",
             untitledNotebook = "Bez názvu",
+            sendToAi = "Poslat AI",
             scheduledTasks = "Naplánované úlohy",
             noTasks = "Žádné úlohy",
             noTasksHint = "Řekni agentovi: „každé ráno v 7:30 mi shrň novinky“ —\nsám se naplánuje přes nástroj schedule_task.",
