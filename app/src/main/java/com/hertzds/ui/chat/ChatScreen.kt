@@ -38,6 +38,7 @@ import com.hertzds.R
 import com.hertzds.data.repo.MessageRole
 import com.hertzds.data.repo.MessageStatus
 import com.hertzds.deepseek.Models
+import com.hertzds.provider.toProviderConfig
 import com.hertzds.ui.AppVm
 import com.hertzds.ui.HandsFreeUi
 import com.hertzds.ui.TurnState
@@ -79,6 +80,13 @@ fun ChatScreen(
     val callRms by vm.callRms.collectAsStateWithLifecycle()
     val isCallUserSpeaking by vm.isCallUserSpeaking.collectAsStateWithLifecycle()
     val readingMessageId by vm.readingMessageId.collectAsStateWithLifecycle()
+
+    val providerCfg = settings?.toProviderConfig()
+    val modelOptions = buildList {
+        addAll(providerCfg?.suggestedModels ?: Models.ALL)
+        val cur = currentChat?.model ?: providerCfg?.resolvedModel
+        if (cur != null && cur.isNotBlank() && !contains(cur)) add(cur)
+    }
 
     val snackbarHost = remember { SnackbarHostState() }
     var showNewGhostDialog by rememberSaveable { mutableStateOf(false) }
@@ -274,7 +282,8 @@ fun ChatScreen(
                         ComposerV2(
                             enabled = turn is TurnState.Idle,
                             pendingAttachments = pending,
-                            currentModel = currentChat?.model ?: settings?.defaultModel ?: Models.FLASH,
+                            currentModel = currentChat?.model ?: providerCfg?.resolvedModel ?: "",
+                            modelOptions = modelOptions,
                             onAttach = {
                                 attachLauncher.launch(arrayOf("image/*", "text/*", "application/pdf", "application/json"))
                             },
@@ -336,7 +345,7 @@ fun ChatScreen(
 
     if (showNewGhostDialog) {
         NewGhostDialog(
-            models = Models.ALL,
+            models = providerCfg?.suggestedModels ?: Models.ALL,
             onDismiss = { showNewGhostDialog = false },
             onCreate = { title, model, prompt ->
                 vm.newGhostChat(model, prompt, title)

@@ -30,8 +30,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hertzds.AppContainer
 import com.hertzds.BuildConfig
 import com.hertzds.data.prefs.AppLanguage
+import com.hertzds.data.prefs.Settings
 import com.hertzds.data.prefs.ThemeMode
 import com.hertzds.deepseek.Models
+import com.hertzds.provider.ProviderId
+import com.hertzds.provider.toProviderConfig
 import com.hertzds.ui.theme.HertzPalette
 import com.hertzds.ui.theme.LocalStrings
 import com.hertzds.voice.DownloadProgress
@@ -132,11 +135,53 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit, onOpenKeys: () -
                     onToggle = { aiExpanded = !aiExpanded; haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove) }
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        ValueRow(
-                            label = str.defaultModel,
-                            value = Models.label(s.defaultModel),
-                            options = Models.ALL.map { it to Models.label(it) }
-                        ) { id -> scope.launch { container.settings.setDefaultModel(id) } }
+                        val provider = s.toProviderConfig()
+                        ChoiceRow(
+                            label = str.provider,
+                            options = ProviderId.entries.map { it.id to it.label },
+                            selected = s.providerId,
+                        ) { id ->
+                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            scope.launch {
+                                container.settings.setProviderId(id)
+                                // Reset the model to the new provider's default so a stale
+                                // model name from the previous provider is never sent.
+                                val newDefault = Settings(providerId = id, defaultModel = "").toProviderConfig().resolvedModel
+                                container.settings.setDefaultModel(newDefault)
+                                if (id != ProviderId.CUSTOM.id && id != ProviderId.OLLAMA.id) {
+                                    container.settings.setCustomBaseUrl(null)
+                                }
+                            }
+                        }
+
+                        if (s.providerId == ProviderId.CUSTOM.id || s.providerId == ProviderId.OLLAMA.id) {
+                            val isOllama = s.providerId == ProviderId.OLLAMA.id
+                            var urlDraft by rememberSaveable(s.providerId) { mutableStateOf(s.customBaseUrl ?: if (isOllama) "http://localhost:11434/v1" else "") }
+                            OutlinedTextField(
+                                value = urlDraft,
+                                onValueChange = { urlDraft = it },
+                                placeholder = { Text(str.customEndpointHint, style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6E6E6E))) },
+                                singleLine = true,
+                                shape = RoundedCornerShape(12.dp),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    unfocusedBorderColor = Color(0xFF2A2A2A), focusedBorderColor = Color.White, cursorColor = Color.White,
+                                    focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color(0xFF1E1E1E),
+                                ),
+                                textStyle = MaterialTheme.typography.bodyMedium.copy(color = Color.White),
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            TextButton(onClick = {
+                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                scope.launch { container.settings.setCustomBaseUrl(urlDraft.trim().ifBlank { null }) }
+                            }) { Text(str.save, color = Color.White) }
+                        }
+
+                        ModelField(
+                            label = str.modelName,
+                            hint = str.modelNameHint,
+                            current = s.defaultModel.ifBlank { provider.resolvedModel },
+                            suggestions = provider.suggestedModels,
+                        ) { model -> scope.launch { container.settings.setDefaultModel(model) } }
 
                         PromptEditor(s.defaultSystemPrompt) { v -> scope.launch { container.settings.setSystemPrompt(v) } }
 
@@ -401,6 +446,71 @@ private fun SliderRow(label: String, hint: String, value: Float, range: ClosedFl
             valueRange = range, steps = steps,
             colors = SliderDefaults.colors(thumbColor = HertzPalette.Signal, activeTrackColor = HertzPalette.Signal, inactiveTrackColor = Color(0xFF2A2A2A)),
         )
+    }
+}
+
+@Composable
+private fun ModelField(
+    label: String,
+    hint: String,
+    current: String,
+    suggestions: List<String>,
+    onCommit: (String) -> Unit,
+) {
+    val str = LocalStrings.current
+    var editing by rememberSaveable { mutableStateOf(false) }
+    var draft by rememberSaveable(current) { mutableStateOf(current) }
+    Column(Modifier.padding(vertical = 8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(label.uppercase(), style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6E6E6E)))
+            Spacer(Modifier.weight(1f))
+            TextButton(onClick = {
+                if (editing) {
+                    onCommit(draft)
+                    editing = false
+                } else {
+                    draft = current
+                    editing = true
+                }
+            }) { Text(if (editing) str.save else str.edit, color = Color.White) }
+        }
+        if (editing) {
+            OutlinedTextField(
+                value = draft,
+                onValueChange = { draft = it },
+                placeholder = { Text(hint, style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6E6E6E))) },
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    unfocusedBorderColor = Color(0xFF2A2A2A), focusedBorderColor = Color.White, cursorColor = Color.White,
+                    focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color(0xFF1E1E1E),
+                ),
+                textStyle = MaterialTheme.typography.bodyMedium.copy(color = Color.White),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        } else {
+            Text(current.ifBlank { "—" }, style = MaterialTheme.typography.bodyMedium.copy(color = Color.White))
+        }
+        if (suggestions.isNotEmpty()) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.padding(top = 8.dp),
+            ) {
+                suggestions.forEach { m ->
+                    Box(
+                        Modifier.clip(RoundedCornerShape(10.dp))
+                            .background(if (m == current) HertzPalette.Signal else Color.Transparent)
+                            .border(1.dp, if (m == current) HertzPalette.Signal else Color(0xFF2A2A2A), RoundedCornerShape(10.dp))
+                            .clickable {
+                                draft = m
+                                onCommit(m)
+                            }.padding(horizontal = 10.dp, vertical = 6.dp),
+                    ) {
+                        Text(m, style = MaterialTheme.typography.labelSmall.copy(color = if (m == current) HertzPalette.OnSignal else Color(0xFFA8A8A8)))
+                    }
+                }
+            }
+        }
     }
 }
 

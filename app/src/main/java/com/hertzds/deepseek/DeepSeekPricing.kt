@@ -117,5 +117,17 @@ object Models {
         else -> id
     }
 
-    fun supportsVision(id: String): Boolean = id == VISION
+    /** Whether the model likely accepts image input. Heuristic across providers. */
+    fun supportsVision(id: String): Boolean {
+        val l = id.lowercase()
+        return l.contains("vision") ||
+            l.contains("gpt-4") ||
+            l.contains("claude") ||
+            l.contains("gemini") ||
+            l.contains("llava") ||
+            l.contains("qwen-vl") ||
+            l.contains("qwen2.5-vl") ||
+            l.contains("llama-3.2-90b") ||
+            l.contains("deepseek-v4-flash-vision")
+    }
 }

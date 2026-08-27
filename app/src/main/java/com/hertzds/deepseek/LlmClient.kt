@@ -1,5 +1,6 @@
 package com.hertzds.deepseek
 
+import com.hertzds.provider.ProviderConfig
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
@@ -16,29 +17,38 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
 
 /**
- * Thin OpenAI-compatible client for https://api.deepseek.com.
- * Streaming is parsed by hand so a turn can be cancelled mid-token and so
- * DeepSeek-specific fields (reasoning_content, cache hit/miss usage) survive.
+ * Thin OpenAI-compatible client. Streaming is parsed by hand so a turn can be
+ * cancelled mid-token and provider-specific fields (reasoning_content, cache
+ * hit/miss usage) survive. Works against any endpoint that speaks the OpenAI
+ * `/chat/completions` SSE protocol — DeepSeek, OpenAI, OpenRouter, Groq, Ollama…
+ *
+ * The [ProviderConfig] (base url, path, auth scheme) is passed per call so a
+ * single client instance can talk to whichever provider is currently configured.
  */
-class DeepSeekClient(
+class LlmClient(
     private val http: OkHttpClient,
     private val json: Json,
-    private val baseUrl: String = DEFAULT_BASE_URL,
 ) {
 
     companion object {
-        const val DEFAULT_BASE_URL = "https://api.deepseek.com"
         private val JSON_MEDIA = "application/json; charset=utf-8".toMediaType()
     }
 
-    fun streamChat(apiKey: String, request: ChatRequest): Flow<StreamEvent> = flow {
+    private fun authHeader(provider: ProviderConfig, apiKey: String): Pair<String, String>? =
+        if (provider.authScheme.isBlank() || apiKey.isBlank()) {
+            null
+        } else {
+            "Authorization" to "${provider.authScheme} $apiKey"
+        }
+
+    fun streamChat(provider: ProviderConfig, apiKey: String, request: ChatRequest): Flow<StreamEvent> = flow {
         val body = json.encodeToString(ChatRequest.serializer(), request.copy(stream = true))
-        val httpRequest = Request.Builder()
-            .url("$baseUrl/chat/completions")
-            .addHeader("Authorization", "Bearer $apiKey")
+        val builder = Request.Builder()
+            .url("${provider.baseUrl}${provider.chatPath}")
             .addHeader("Accept", "text/event-stream")
             .post(body.toRequestBody(JSON_MEDIA))
-            .build()
+        authHeader(provider, apiKey)?.let { builder.addHeader(it.first, it.second) }
+        val httpRequest = builder.build()
 
         val call = http.newCall(httpRequest)
         val response = try {
@@ -98,17 +108,17 @@ class DeepSeekClient(
     }.flowOn(Dispatchers.IO)
 
     /** Non-streaming call, used for cheap side tasks like auto-naming a chat. */
-    suspend fun complete(apiKey: String, request: ChatRequest): ChatResponse =
+    suspend fun complete(provider: ProviderConfig, apiKey: String, request: ChatRequest): ChatResponse =
         withContext(Dispatchers.IO) {
             val body = json.encodeToString(
                 ChatRequest.serializer(),
                 request.copy(stream = false, streamOptions = null),
             )
-            val httpRequest = Request.Builder()
-                .url("$baseUrl/chat/completions")
-                .addHeader("Authorization", "Bearer $apiKey")
+            val builder = Request.Builder()
+                .url("${provider.baseUrl}${provider.chatPath}")
                 .post(body.toRequestBody(JSON_MEDIA))
-                .build()
+            authHeader(provider, apiKey)?.let { builder.addHeader(it.first, it.second) }
+            val httpRequest = builder.build()
             try {
                 http.newCall(httpRequest).execute().use { resp ->
                     val text = resp.body?.string().orEmpty()
@@ -120,13 +130,14 @@ class DeepSeekClient(
             }
         }
 
-    /** GET /user/balance — the real remaining credit for this key. */
-    suspend fun balance(apiKey: String): BalanceResponse = withContext(Dispatchers.IO) {
-        val request = Request.Builder()
-            .url("$baseUrl/user/balance")
-            .addHeader("Authorization", "Bearer $apiKey")
+    /** GET /user/balance — the real remaining credit for this key (DeepSeek only). */
+    suspend fun balance(provider: ProviderConfig, apiKey: String): BalanceResponse = withContext(Dispatchers.IO) {
+        val path = provider.balancePath ?: throw DeepSeekException(ApiFailure.SERVER, "balance not supported")
+        val builder = Request.Builder()
+            .url("${provider.baseUrl}$path")
             .get()
-            .build()
+        authHeader(provider, apiKey)?.let { builder.addHeader(it.first, it.second) }
+        val request = builder.build()
         try {
             http.newCall(request).execute().use { resp ->
                 val text = resp.body?.string().orEmpty()

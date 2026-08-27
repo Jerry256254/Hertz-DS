@@ -12,14 +12,16 @@ import com.hertzds.data.repo.NotebookRepository
 import com.hertzds.data.repo.MessageStatus
 import com.hertzds.deepseek.ApiMessage
 import com.hertzds.deepseek.ChatRequest
-import com.hertzds.deepseek.DeepSeekClient
 import com.hertzds.deepseek.DeepSeekException
 import com.hertzds.deepseek.DeepSeekPricing
+import com.hertzds.deepseek.LlmClient
 import com.hertzds.deepseek.Models
 import com.hertzds.deepseek.StreamEvent
 import com.hertzds.deepseek.StreamOptions
 import com.hertzds.deepseek.ToolCall
 import com.hertzds.deepseek.Usage
+import com.hertzds.provider.ProviderConfig
+import com.hertzds.provider.toProviderConfig
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
@@ -51,7 +53,7 @@ sealed interface AgentEvent {
  */
 class AgentEngine(
     private val appContext: Context,
-    private val client: DeepSeekClient,
+    private val client: LlmClient,
     private val chats: ChatRepository,
     private val keys: ApiKeyRepository,
     private val memories: MemoryRepository,
@@ -74,7 +76,16 @@ class AgentEngine(
             return@channelFlow
         }
 
+        val provider = settings.toProviderConfig()
         val model = chat.model
+        if (provider.baseUrl.isBlank()) {
+            send(AgentEvent.Failed("provider_no_url", recoverable = true))
+            return@channelFlow
+        }
+        if (model.isBlank()) {
+            send(AgentEvent.Failed("no_model_selected", recoverable = true))
+            return@channelFlow
+        }
         val triedKeys = mutableSetOf<String>()
         var iteration = 0
 
@@ -121,6 +132,7 @@ class AgentEngine(
 
             try {
                 client.streamChat(
+                    provider = provider,
                     apiKey = resolvedKey.secret,
                     request = ChatRequest(
                         model = model,
@@ -191,43 +203,62 @@ class AgentEngine(
 
             // Bill this round trip.
             usage?.let { u ->
-                runCatching {
-                    val now = Instant.now()
-                    val peak = DeepSeekPricing.isPeak(now)
-                    val cost = DeepSeekPricing.cost(
-                        model = model,
-                        cacheHitTokens = u.cacheHit,
-                        cacheMissTokens = u.cacheMiss,
-                        outputTokens = u.completionTokens,
-                        at = now,
-                    )
-                    chats.recordUsage(
-                        keyId = resolvedKey.id,
-                        chatId = chatId,
-                        model = model,
-                        promptTokens = u.promptTokens,
-                        cachedTokens = u.cacheHit,
-                        completionTokens = u.completionTokens,
-                        costUsd = cost,
-                        peakPricing = peak,
-                    )
-                    send(AgentEvent.Spent(cost, peak))
-
-                    chats.update(
-                        assistantMessage.copy(
-                            content = contentBuilder.toString(),
-                            reasoning = reasoningBuilder.toString().ifEmpty { null },
-                            toolCallsJson = toolCalls.takeIf { it.isNotEmpty() }
-                                ?.let { json.encodeToString(kotlinx.serialization.builtins.ListSerializer(ToolCall.serializer()), it) },
-                            status = MessageStatus.DONE,
+                if (provider.isDeepSeek) {
+                    runCatching {
+                        val now = Instant.now()
+                        val peak = DeepSeekPricing.isPeak(now)
+                        val cost = DeepSeekPricing.cost(
+                            model = model,
+                            cacheHitTokens = u.cacheHit,
+                            cacheMissTokens = u.cacheMiss,
+                            outputTokens = u.completionTokens,
+                            at = now,
+                        )
+                        chats.recordUsage(
+                            keyId = resolvedKey.id,
+                            chatId = chatId,
+                            model = model,
                             promptTokens = u.promptTokens,
                             cachedTokens = u.cacheHit,
                             completionTokens = u.completionTokens,
                             costUsd = cost,
                             peakPricing = peak,
-                        ),
-                    )
-                }.onFailure { send(AgentEvent.Failed("Failed to record usage: ${it.message}", recoverable = false)) }
+                        )
+                        send(AgentEvent.Spent(cost, peak))
+
+                        chats.update(
+                            assistantMessage.copy(
+                                content = contentBuilder.toString(),
+                                reasoning = reasoningBuilder.toString().ifEmpty { null },
+                                toolCallsJson = toolCalls.takeIf { it.isNotEmpty() }
+                                    ?.let { json.encodeToString(kotlinx.serialization.builtins.ListSerializer(ToolCall.serializer()), it) },
+                                status = MessageStatus.DONE,
+                                promptTokens = u.promptTokens,
+                                cachedTokens = u.cacheHit,
+                                completionTokens = u.completionTokens,
+                                costUsd = cost,
+                                peakPricing = peak,
+                            ),
+                        )
+                    }.onFailure { send(AgentEvent.Failed("Failed to record usage: ${it.message}", recoverable = false)) }
+                } else {
+                    // Non-DeepSeek providers don't share the peak/off-peak pricing model.
+                    runCatching {
+                        chats.update(
+                            assistantMessage.copy(
+                                content = contentBuilder.toString(),
+                                reasoning = reasoningBuilder.toString().ifEmpty { null },
+                                toolCallsJson = toolCalls.takeIf { it.isNotEmpty() }
+                                    ?.let { json.encodeToString(kotlinx.serialization.builtins.ListSerializer(ToolCall.serializer()), it) },
+                                status = MessageStatus.DONE,
+                                promptTokens = u.promptTokens,
+                                completionTokens = u.completionTokens,
+                                costUsd = 0.0,
+                                peakPricing = false,
+                            ),
+                        )
+                    }.onFailure { send(AgentEvent.Failed("Failed to update message: ${it.message}", recoverable = false)) }
+                }
             } ?: runCatching {
                 chats.update(
                     assistantMessage.copy(
@@ -320,13 +351,14 @@ class AgentEngine(
         send(AgentEvent.Failed("tool_loop_limit", recoverable = true))
     }
 
-    /** Turns the stored conversation into the payload DeepSeek expects. */
+    /** Turns the stored conversation into the payload the provider expects. */
     private suspend fun buildApiMessages(
         chatId: String,
         chatSystemPrompt: String?,
         settings: Settings,
         model: String,
     ): List<ApiMessage> {
+        val provider = settings.toProviderConfig()
         val stored = chats.messages(chatId).takeLast(HISTORY_MESSAGE_LIMIT)
         val lastUserText = stored.lastOrNull { it.role == MessageRole.USER }?.content.orEmpty()
 
@@ -346,8 +378,10 @@ class AgentEngine(
             appendLine()
             appendLine()
             appendLine("Workspace: files you read or write live in a private sandbox folder; use relative paths.")
-            append("Billing: DeepSeek charges double during peak hours (01:00-04:00 and 06:00-10:00 UTC, Mon-Fri). ")
-            appendLine("Call get_time if the user asks about cost or timing.")
+            if (provider.isDeepSeek) {
+                append("Billing: DeepSeek charges double during peak hours (01:00-04:00 and 06:00-10:00 UTC, Mon-Fri). ")
+                appendLine("Call get_time if the user asks about cost or timing.")
+            }
             if (!memoryBlock.isNullOrBlank()) {
                 appendLine()
                 appendLine("Long-term memory (retrieved for this turn):")

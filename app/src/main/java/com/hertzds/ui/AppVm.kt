@@ -16,6 +16,7 @@ import com.hertzds.data.repo.MessageStatus
 import com.hertzds.deepseek.ApiMessage
 import com.hertzds.deepseek.ChatRequest
 import com.hertzds.deepseek.Models
+import com.hertzds.provider.toProviderConfig
 import com.hertzds.tools.OcrBridge
 import com.hertzds.ui.theme.Strings
 import com.hertzds.voice.HandsFreeState
@@ -222,7 +223,7 @@ class AppVm(private val container: AppContainer) : ViewModel() {
             val s = settings.value ?: return@launch
             val chat = chats.createChat(
                 title = title?.takeIf { it.isNotBlank() } ?: "Ghost ${chatList.value.size + 1}",
-                model = model ?: s.defaultModel,
+                model = model ?: s.toProviderConfig().resolvedModel,
                 systemPrompt = systemPrompt?.takeIf { it.isNotBlank() },
             )
             openChat(chat.id)
@@ -390,17 +391,18 @@ class AppVm(private val container: AppContainer) : ViewModel() {
     private suspend fun resolveOrCreateCurrentChat(): String? = runCatching {
         _currentChatId.value?.let { return it }
         val s = settings.value ?: return null
+        val model = s.toProviderConfig().resolvedModel
         val chat = when (pendingChat) {
             PendingChat.Ghost -> chats.createChat(
                 title = "Ghost — ephemeral",
-                model = s.defaultModel,
+                model = model,
                 systemPrompt = "You are in ghost mode: do not use long-term memory tools and do not store anything. Answer only from this conversation.",
                 titleIsAuto = false,
             )
-            PendingChat.Fresh -> chats.createChat(title = defaultChatTitle(), model = s.defaultModel, systemPrompt = null)
+            PendingChat.Fresh -> chats.createChat(title = defaultChatTitle(), model = model, systemPrompt = null)
             PendingChat.None -> runCatching { chats.chats.first().firstOrNull() }
                 .getOrNull() ?: chats.ensureChat(
-                    model = s.defaultModel,
+                    model = model,
                     systemPrompt = null,
                     fallbackTitle = defaultChatTitle(),
                 )
@@ -496,7 +498,7 @@ class AppVm(private val container: AppContainer) : ViewModel() {
         }
 
         _turn.value = TurnState.Idle
-        if (failure != null) _snackbar.value = failure
+        if (failure != null) _snackbar.value = friendlyError(failure)
         if (finalText.isBlank() && ttsEnabled) voice.stopSpeaking()
 
         runCatching { maybeAutoName(chatId) }
@@ -508,6 +510,17 @@ class AppVm(private val container: AppContainer) : ViewModel() {
     }
 
     private var lastTtsFallbackWarnAt = 0L
+
+    /** Maps internal failure codes to short, human-readable messages. */
+    private fun friendlyError(code: String): String = when (code) {
+        "no_api_key" -> "No API key added — open Settings ▸ Keys & Credits."
+        "all_keys_exhausted" -> "All API keys failed (401/402/429). Check your keys."
+        "no_model_selected" -> "No model selected — pick one in Settings."
+        "provider_no_url" -> "Custom provider has no base URL set in Settings."
+        "chat not found" -> "Chat not found."
+        "tool_loop_limit" -> "Reached the tool iteration limit."
+        else -> code
+    }
 
     /** At most one "offline voice didn't work" notice every few minutes — never spam per sentence. */
     private fun warnTtsFallback(reason: String?) {
@@ -546,6 +559,8 @@ class AppVm(private val container: AppContainer) : ViewModel() {
             if (userTurns < 1 || userTurns % 3 != 0) return@launch
 
             val key = keys.nextKey() ?: return@launch
+            val provider = s.toProviderConfig()
+            val sideModel = s.defaultModel.ifBlank { Models.FLASH }
             val existingProfile = container.memories.profile()?.content.orEmpty()
             val transcript = chats.messages(chatId)
                 .filter { it.role == MessageRole.USER || it.role == MessageRole.ASSISTANT }
@@ -553,10 +568,11 @@ class AppVm(private val container: AppContainer) : ViewModel() {
                 .joinToString("\n") { "${it.role}: ${it.content.take(500)}" }
 
             runCatching {
-                val response = container.deepSeekClient.complete(
+                val response = container.llmClient.complete(
+                    provider,
                     key.secret,
                     ChatRequest(
-                        model = Models.FLASH,
+                        model = sideModel,
                         messages = listOf(
                             ApiMessage(
                                 role = MessageRole.SYSTEM,
@@ -598,6 +614,8 @@ class AppVm(private val container: AppContainer) : ViewModel() {
     private fun maybeAutoName(chatId: String) {
         viewModelScope.launch {
             val s = settings.value ?: return@launch
+            val provider = s.toProviderConfig()
+            val sideModel = s.defaultModel.ifBlank { Models.FLASH }
             // autoNameChats is always true (toggle removed) — kept for data compat
             val chat = chats.getChat(chatId) ?: return@launch
             if (!chat.titleIsAuto || chats.userMessageCount(chatId) < 1) return@launch
@@ -609,10 +627,11 @@ class AppVm(private val container: AppContainer) : ViewModel() {
                 .joinToString("\n") { "${it.role}: ${it.content.take(400)}" }
 
             runCatching {
-                val response = container.deepSeekClient.complete(
+                val response = container.llmClient.complete(
+                    provider,
                     key.secret,
                     ChatRequest(
-                        model = Models.FLASH,
+                        model = sideModel,
                         messages = listOf(
                             ApiMessage(
                                 role = MessageRole.SYSTEM,

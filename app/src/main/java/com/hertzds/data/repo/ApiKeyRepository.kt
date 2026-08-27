@@ -4,9 +4,12 @@ import com.hertzds.core.crypto.SecretStore
 import com.hertzds.data.db.ApiKeyDao
 import com.hertzds.data.db.ApiKeyEntity
 import com.hertzds.data.db.UsageDao
+import com.hertzds.data.prefs.SettingsRepository
 import com.hertzds.deepseek.ApiFailure
-import com.hertzds.deepseek.DeepSeekClient
 import com.hertzds.deepseek.DeepSeekException
+import com.hertzds.deepseek.LlmClient
+import com.hertzds.provider.ProviderConfig
+import com.hertzds.provider.toProviderConfig
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.util.UUID
@@ -41,7 +44,8 @@ data class KeyStatus(
 class ApiKeyRepository(
     private val keyDao: ApiKeyDao,
     private val usageDao: UsageDao,
-    private val client: DeepSeekClient,
+    private val client: LlmClient,
+    private val settings: SettingsRepository,
 ) {
 
     companion object {
@@ -118,12 +122,21 @@ class ApiKeyRepository(
         keyDao.setError(keyId, null, null)
     }
 
-    /** Asks DeepSeek for the authoritative balance of one key. */
+    /**
+     * Asks the provider for the authoritative balance of one key. Only DeepSeek
+     * exposes a balance endpoint; for every other provider this is a no-op that
+     * leaves the previously entered manual top-up (if any) untouched.
+     */
     suspend fun refreshBalance(keyId: String): Double? {
         val entity = keyDao.get(keyId) ?: return null
+        if (!settings.current().toProviderConfig().supportsBalance) {
+            // Not all providers report a balance — don't error or cooldown the key.
+            keyDao.setError(keyId, null, null)
+            return entity.manualToppedUpUsd
+        }
         val secret = SecretStore.decrypt(entity.encryptedKey) ?: return null
         return runCatching {
-            val response = client.balance(secret)
+            val response = client.balance(provider(), secret)
             val usd = response.balanceInfos.firstOrNull { it.currency.equals("USD", true) }
                 ?: response.balanceInfos.firstOrNull()
             val value = usd?.totalBalance?.toDoubleOrNull() ?: 0.0
@@ -136,6 +149,8 @@ class ApiKeyRepository(
             (throwable as? DeepSeekException)?.let { keyDao.setError(keyId, it.message, null) }
         }.getOrNull()
     }
+
+    private suspend fun provider(): ProviderConfig = settings.current().toProviderConfig()
 
     suspend fun refreshAllBalances() {
         keyDao.all().filter { it.enabled }.forEach { refreshBalance(it.id) }

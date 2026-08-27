@@ -31,7 +31,7 @@ import com.hertzds.data.prefs.SettingsRepository
 import com.hertzds.data.repo.ApiKeyRepository
 import com.hertzds.data.repo.ChatRepository
 import com.hertzds.data.repo.MemoryRepository
-import com.hertzds.deepseek.DeepSeekClient
+import com.hertzds.deepseek.LlmClient
 import com.hertzds.voice.ModelDownloader
 import com.hertzds.voice.VoiceManager
 import com.hertzds.work.ScheduledTaskWorker
@@ -84,12 +84,12 @@ class AppContainer(private val app: Application) {
 
     val database: HertzDatabase by lazy { HertzDatabase.build(app) }
     val settings: SettingsRepository by lazy { SettingsRepository(app) }
-    val deepSeekClient: DeepSeekClient by lazy { DeepSeekClient(http, json) }
+    val llmClient: LlmClient by lazy { LlmClient(http, json) }
 
     val chats: ChatRepository by lazy {
         ChatRepository(database.chatDao(), database.messageDao(), database.attachmentDao(), database.usageDao())
     }
-    val keys: ApiKeyRepository by lazy { ApiKeyRepository(database.apiKeyDao(), database.usageDao(), deepSeekClient) }
+    val keys: ApiKeyRepository by lazy { ApiKeyRepository(database.apiKeyDao(), database.usageDao(), llmClient, settings) }
     val memories: MemoryRepository by lazy { MemoryRepository(database.memoryDao()) }
     val notebooks: com.hertzds.data.repo.NotebookRepository by lazy { com.hertzds.data.repo.NotebookRepository(database.notebookDao()) }
 
@@ -118,7 +118,7 @@ class AppContainer(private val app: Application) {
     }
 
     val agentEngine: AgentEngine by lazy {
-        AgentEngine(app, deepSeekClient, chats, keys, memories, notebooks, toolRegistry, json)
+        AgentEngine(app, llmClient, chats, keys, memories, notebooks, toolRegistry, json)
     }
 
     val voiceManager: VoiceManager by lazy { VoiceManager(app, http, modelDownloader) }

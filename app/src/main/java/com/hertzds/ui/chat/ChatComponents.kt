@@ -51,7 +51,6 @@ import coil.compose.AsyncImage
 import com.hertzds.R
 import com.hertzds.data.db.AttachmentEntity
 import com.hertzds.data.db.ChatEntity
-import com.hertzds.deepseek.Models
 import com.hertzds.ui.theme.HertzPalette
 import com.hertzds.ui.theme.LocalStrings
 
@@ -80,6 +79,7 @@ fun ComposerV2(
     enabled: Boolean,
     pendingAttachments: List<AttachmentEntity>,
     currentModel: String,
+    modelOptions: List<String>,
     onAttach: () -> Unit,
     onSelectModel: (String) -> Unit,
     onRemoveAttachment: (String) -> Unit,
@@ -220,11 +220,11 @@ fun ComposerV2(
                                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                                 ) {
                                     Icon(painterResource(R.drawable.ic_model_spark), null, tint = Color.White, modifier = Modifier.size(12.dp))
-                                    Text(
-                                        Models.label(currentModel),
-                                        style = MaterialTheme.typography.labelMedium.copy(color = Color.White),
-                                        modifier = Modifier.padding(start = 6.dp),
-                                    )
+                                Text(
+                                    currentModel.ifBlank { "—" },
+                                    style = MaterialTheme.typography.labelMedium.copy(color = Color.White),
+                                    modifier = Modifier.padding(start = 6.dp),
+                                )
                                     Text(
                                         if (modelMenuOpen) "▲" else "▼",
                                         style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFFA8A8A8)),
@@ -237,9 +237,9 @@ fun ComposerV2(
                                 onDismissRequest = { modelMenuOpen = false },
                                 modifier = Modifier.background(Color(0xFF1E1E1E)),
                             ) {
-                                Models.ALL.forEach { id ->
+                                modelOptions.forEach { id ->
                                     DropdownMenuItem(
-                                        text = { Text(Models.label(id), color = if (id == currentModel) HertzPalette.Signal else Color.White) },
+                                        text = { Text(id.ifBlank { "—" }, color = if (id == currentModel) HertzPalette.Signal else Color.White) },
                                         onClick = { onSelectModel(id); modelMenuOpen = false },
                                     )
                                 }
@@ -697,7 +697,7 @@ private fun ChatRow(
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
             }
-            Text("${Models.label(chat.model)} · $%.4f".format(chat.totalCostUsd), style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6E6E6E)), modifier = Modifier.padding(top = 2.dp))
+            Text("${chat.model.ifBlank { "—" }} · $%.4f".format(chat.totalCostUsd), style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6E6E6E)), modifier = Modifier.padding(top = 2.dp))
         }
         Box {
             Icon(
@@ -760,7 +760,7 @@ fun NewGhostDialog(
 ) {
     var title by rememberSaveable { mutableStateOf("") }
     var prompt by rememberSaveable { mutableStateOf("") }
-    var model by rememberSaveable { mutableStateOf(models.first()) }
+    var model by rememberSaveable { mutableStateOf(models.firstOrNull().orEmpty()) }
     val str = LocalStrings.current
     HertzDialog(title = str.newGhostChat, dismissLabel = str.cancel, confirmLabel = str.create, onDismiss = onDismiss, onConfirm = { onCreate(title, model, prompt) }) {
         DialogField(title, { title = it }, str.nameOptional, singleLine = true)
@@ -783,12 +783,12 @@ private fun ModelDropdown(selected: String, models: List<String>, onSelect: (Str
                     .background(Color(0xFF1E1E1E)).border(1.dp, Color(0xFF2A2A2A), RoundedCornerShape(12.dp))
                     .clickable { open = true }.padding(horizontal = 14.dp, vertical = 12.dp),
             ) {
-                Text(Models.label(selected), style = MaterialTheme.typography.titleMedium.copy(color = Color.White), modifier = Modifier.weight(1f))
+                Text(selected.ifBlank { "—" }, style = MaterialTheme.typography.titleMedium.copy(color = Color.White), modifier = Modifier.weight(1f))
                 Text(if (open) "▲" else "▼", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFFA8A8A8)))
             }
             DropdownMenu(expanded = open, onDismissRequest = { open = false }, modifier = Modifier.background(Color(0xFF1E1E1E))) {
                 models.forEach { candidate ->
-                    DropdownMenuItem(text = { Text(Models.label(candidate), color = Color.White) }, onClick = { onSelect(candidate); open = false })
+                    DropdownMenuItem(text = { Text(candidate.ifBlank { "—" }, color = Color.White) }, onClick = { onSelect(candidate); open = false })
                 }
             }
         }

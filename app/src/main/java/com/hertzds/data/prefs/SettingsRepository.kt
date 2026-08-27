@@ -23,6 +23,9 @@ data class Settings(
     val language: AppLanguage = AppLanguage.SYSTEM,
     val themeMode: ThemeMode = ThemeMode.DARK,
     val defaultModel: String = Models.FLASH,
+    val providerId: String = "deepseek",
+    val customBaseUrl: String? = null,
+    val customModel: String? = null,
     val defaultSystemPrompt: String = DEFAULT_SYSTEM_PROMPT,
     val temperature: Double = 0.7,
     val maxToolIterations: Int = 12,
@@ -59,6 +62,9 @@ class SettingsRepository(private val context: Context) {
         val LANGUAGE = stringPreferencesKey("language")
         val THEME = stringPreferencesKey("theme")
         val MODEL = stringPreferencesKey("default_model")
+        val PROVIDER = stringPreferencesKey("provider_id")
+        val CUSTOM_BASE_URL = stringPreferencesKey("custom_base_url")
+        val CUSTOM_MODEL = stringPreferencesKey("custom_model")
         val SYSTEM_PROMPT = stringPreferencesKey("system_prompt")
         val TEMPERATURE = doublePreferencesKey("temperature")
         val MAX_TOOL_ITERATIONS = intPreferencesKey("max_tool_iterations")
@@ -95,6 +101,9 @@ class SettingsRepository(private val context: Context) {
                 runCatching { ThemeMode.valueOf(name) }.getOrNull()
             } ?: defaults.themeMode,
             defaultModel = this[Keys.MODEL] ?: defaults.defaultModel,
+            providerId = this[Keys.PROVIDER] ?: defaults.providerId,
+            customBaseUrl = this[Keys.CUSTOM_BASE_URL],
+            customModel = this[Keys.CUSTOM_MODEL],
             defaultSystemPrompt = this[Keys.SYSTEM_PROMPT] ?: defaults.defaultSystemPrompt,
             temperature = this[Keys.TEMPERATURE] ?: defaults.temperature,
             maxToolIterations = this[Keys.MAX_TOOL_ITERATIONS] ?: defaults.maxToolIterations,
@@ -121,6 +130,13 @@ class SettingsRepository(private val context: Context) {
     suspend fun setLanguage(value: AppLanguage) = put { it[Keys.LANGUAGE] = value.tag }
     suspend fun setTheme(value: ThemeMode) = put { it[Keys.THEME] = value.name }
     suspend fun setDefaultModel(value: String) = put { it[Keys.MODEL] = value }
+    suspend fun setProviderId(value: String) = put { it[Keys.PROVIDER] = value }
+    suspend fun setCustomBaseUrl(value: String?) = put {
+        if (value == null) it.remove(Keys.CUSTOM_BASE_URL) else it[Keys.CUSTOM_BASE_URL] = value
+    }
+    suspend fun setCustomModel(value: String?) = put {
+        if (value == null) it.remove(Keys.CUSTOM_MODEL) else it[Keys.CUSTOM_MODEL] = value
+    }
     suspend fun setSystemPrompt(value: String) = put { it[Keys.SYSTEM_PROMPT] = value }
     suspend fun setTemperature(value: Double) = put { it[Keys.TEMPERATURE] = value }
     suspend fun setMaxToolIterations(value: Int) = put { it[Keys.MAX_TOOL_ITERATIONS] = value }
