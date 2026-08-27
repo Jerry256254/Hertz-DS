@@ -363,7 +363,10 @@ class AppVm(private val container: AppContainer) : ViewModel() {
     fun send(rawText: String) {
         val text = rawText.trim()
         if (text.isEmpty()) return
-        viewModelScope.launch { runTurn(text) }
+        viewModelScope.launch {
+            runCatching { runTurn(text) }
+                .onFailure { _snackbar.value = it.message ?: "Failed to send message" }
+        }
     }
 
     fun stop() {
@@ -384,7 +387,7 @@ class AppVm(private val container: AppContainer) : ViewModel() {
      * attaching a file, since either one is a real enough action to stop
      * deferring chat creation for.
      */
-    private suspend fun resolveOrCreateCurrentChat(): String? {
+    private suspend fun resolveOrCreateCurrentChat(): String? = runCatching {
         _currentChatId.value?.let { return it }
         val s = settings.value ?: return null
         val chat = when (pendingChat) {
@@ -395,16 +398,17 @@ class AppVm(private val container: AppContainer) : ViewModel() {
                 titleIsAuto = false,
             )
             PendingChat.Fresh -> chats.createChat(title = defaultChatTitle(), model = s.defaultModel, systemPrompt = null)
-            PendingChat.None -> chats.chats.first().firstOrNull() ?: chats.ensureChat(
-                model = s.defaultModel,
-                systemPrompt = null,
-                fallbackTitle = defaultChatTitle(),
-            )
+            PendingChat.None -> runCatching { chats.chats.first().firstOrNull() }
+                .getOrNull() ?: chats.ensureChat(
+                    model = s.defaultModel,
+                    systemPrompt = null,
+                    fallbackTitle = defaultChatTitle(),
+                )
         }
         pendingChat = PendingChat.None
         openChat(chat.id)
-        return chat.id
-    }
+        chat.id
+    }.getOrNull()
 
     /**
      * One full exchange: persist the user message, drive the agent loop, speak the
@@ -413,12 +417,28 @@ class AppVm(private val container: AppContainer) : ViewModel() {
     private suspend fun runTurn(userText: String): String = sendMutex.withLock {
         val chatId = resolveOrCreateCurrentChat() ?: return ""
         val s = settings.value ?: return ""
-        val userMessage = chats.newMessage(chatId, MessageRole.USER, userText)
-        chats.addMessage(userMessage)
+        
+        // Wrap message creation in try-catch to handle potential DB errors
+        val userMessage = runCatching { chats.newMessage(chatId, MessageRole.USER, userText) }
+            .getOrElse { 
+                _snackbar.value = "Failed to create message: ${it.message}"
+                return ""
+            }
+        
+        val messageId = runCatching { 
+            chats.addMessage(userMessage)
+            userMessage.id
+        }.getOrElse { 
+            _snackbar.value = "Failed to save message: ${it.message}"
+            return ""
+        }
+        
         val pendings = _pendingAttachments.value
         if (pendings.isNotEmpty()) {
-            pendings.forEach { chats.attachToMessage(it.id, userMessage.id) }
-            _pendingAttachments.value = emptyList()
+            runCatching {
+                pendings.forEach { chats.attachToMessage(it.id, messageId) }
+                _pendingAttachments.value = emptyList()
+            }.onFailure { _snackbar.value = "Failed to attach files: ${it.message}" }
         }
 
         _turn.value = TurnState.Running()
@@ -479,8 +499,11 @@ class AppVm(private val container: AppContainer) : ViewModel() {
         if (failure != null) _snackbar.value = failure
         if (finalText.isBlank() && ttsEnabled) voice.stopSpeaking()
 
-        maybeAutoName(chatId)
-        maybeUpdateProfile(chatId, s)
+        runCatching { maybeAutoName(chatId) }
+            .onFailure { /* ignore auto-name failures */ }
+        runCatching { maybeUpdateProfile(chatId, s) }
+            .onFailure { /* ignore profile update failures */ }
+        
         return finalText
     }
 

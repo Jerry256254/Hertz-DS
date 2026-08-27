@@ -92,17 +92,26 @@ class AgentEngine(
                 return@channelFlow
             }
 
-            val apiMessages = buildApiMessages(chatId, chat.systemPrompt, settings, model)
-            val toolSpecs = if (chat.toolsEnabled) registry.specsFor(settings) else null
+            val apiMessages = runCatching { buildApiMessages(chatId, chat.systemPrompt, settings, model) }
+                .getOrElse { 
+                    send(AgentEvent.Failed("Failed to build messages: ${it.message}", recoverable = true))
+                    return@channelFlow
+                }
+            val toolSpecs = if (chat.toolsEnabled) runCatching { registry.specsFor(settings) }.getOrNull() else null
 
-            val assistantMessage = chats.addMessage(
-                chats.newMessage(
-                    chatId = chatId,
-                    role = MessageRole.ASSISTANT,
-                    status = MessageStatus.STREAMING,
-                    model = model,
-                ),
-            )
+            val assistantMessage = runCatching {
+                chats.addMessage(
+                    chats.newMessage(
+                        chatId = chatId,
+                        role = MessageRole.ASSISTANT,
+                        status = MessageStatus.STREAMING,
+                        model = model,
+                    ),
+                )
+            }.getOrElse { 
+                send(AgentEvent.Failed("Failed to create assistant message: ${it.message}", recoverable = true))
+                return@channelFlow
+            }
 
             val contentBuilder = StringBuilder()
             val reasoningBuilder = StringBuilder()
@@ -182,27 +191,44 @@ class AgentEngine(
 
             // Bill this round trip.
             usage?.let { u ->
-                val now = Instant.now()
-                val peak = DeepSeekPricing.isPeak(now)
-                val cost = DeepSeekPricing.cost(
-                    model = model,
-                    cacheHitTokens = u.cacheHit,
-                    cacheMissTokens = u.cacheMiss,
-                    outputTokens = u.completionTokens,
-                    at = now,
-                )
-                chats.recordUsage(
-                    keyId = resolvedKey.id,
-                    chatId = chatId,
-                    model = model,
-                    promptTokens = u.promptTokens,
-                    cachedTokens = u.cacheHit,
-                    completionTokens = u.completionTokens,
-                    costUsd = cost,
-                    peakPricing = peak,
-                )
-                send(AgentEvent.Spent(cost, peak))
+                runCatching {
+                    val now = Instant.now()
+                    val peak = DeepSeekPricing.isPeak(now)
+                    val cost = DeepSeekPricing.cost(
+                        model = model,
+                        cacheHitTokens = u.cacheHit,
+                        cacheMissTokens = u.cacheMiss,
+                        outputTokens = u.completionTokens,
+                        at = now,
+                    )
+                    chats.recordUsage(
+                        keyId = resolvedKey.id,
+                        chatId = chatId,
+                        model = model,
+                        promptTokens = u.promptTokens,
+                        cachedTokens = u.cacheHit,
+                        completionTokens = u.completionTokens,
+                        costUsd = cost,
+                        peakPricing = peak,
+                    )
+                    send(AgentEvent.Spent(cost, peak))
 
+                    chats.update(
+                        assistantMessage.copy(
+                            content = contentBuilder.toString(),
+                            reasoning = reasoningBuilder.toString().ifEmpty { null },
+                            toolCallsJson = toolCalls.takeIf { it.isNotEmpty() }
+                                ?.let { json.encodeToString(kotlinx.serialization.builtins.ListSerializer(ToolCall.serializer()), it) },
+                            status = MessageStatus.DONE,
+                            promptTokens = u.promptTokens,
+                            cachedTokens = u.cacheHit,
+                            completionTokens = u.completionTokens,
+                            costUsd = cost,
+                            peakPricing = peak,
+                        ),
+                    )
+                }.onFailure { send(AgentEvent.Failed("Failed to record usage: ${it.message}", recoverable = false)) }
+            } ?: runCatching {
                 chats.update(
                     assistantMessage.copy(
                         content = contentBuilder.toString(),
@@ -210,22 +236,9 @@ class AgentEngine(
                         toolCallsJson = toolCalls.takeIf { it.isNotEmpty() }
                             ?.let { json.encodeToString(kotlinx.serialization.builtins.ListSerializer(ToolCall.serializer()), it) },
                         status = MessageStatus.DONE,
-                        promptTokens = u.promptTokens,
-                        cachedTokens = u.cacheHit,
-                        completionTokens = u.completionTokens,
-                        costUsd = cost,
-                        peakPricing = peak,
                     ),
                 )
-            } ?: chats.update(
-                assistantMessage.copy(
-                    content = contentBuilder.toString(),
-                    reasoning = reasoningBuilder.toString().ifEmpty { null },
-                    toolCallsJson = toolCalls.takeIf { it.isNotEmpty() }
-                        ?.let { json.encodeToString(kotlinx.serialization.builtins.ListSerializer(ToolCall.serializer()), it) },
-                    status = MessageStatus.DONE,
-                ),
-            )
+            }.onFailure { send(AgentEvent.Failed("Failed to update message: ${it.message}", recoverable = false)) }
 
             if (toolCalls.isEmpty()) {
                 send(AgentEvent.Completed)
@@ -235,14 +248,20 @@ class AgentEngine(
             // Run every requested tool and append its result as a `tool` message.
             for (call in toolCalls) {
                 val tool = registry.get(call.function.name)
-                val toolMessage = chats.newMessage(
-                    chatId = chatId,
-                    role = MessageRole.TOOL,
-                    status = MessageStatus.PENDING,
-                    toolCallId = call.id,
-                    toolName = call.function.name,
-                )
-                chats.addMessage(toolMessage)
+                val toolMessage = runCatching {
+                    chats.newMessage(
+                        chatId = chatId,
+                        role = MessageRole.TOOL,
+                        status = MessageStatus.PENDING,
+                        toolCallId = call.id,
+                        toolName = call.function.name,
+                    )
+                }.getOrElse { 
+                    send(AgentEvent.ToolFinished(call.function.name, false))
+                    continue
+                }
+                runCatching { chats.addMessage(toolMessage) }
+                    .onFailure { send(AgentEvent.ToolFinished(call.function.name, false)) }
                 send(AgentEvent.ToolStarted(call.function.name, ""))
 
                 val result = if (tool == null) {
@@ -267,27 +286,32 @@ class AgentEngine(
                     }.getOrElse { ToolResult.error(it.message ?: it::class.simpleName ?: "tool failed") }
                 }
 
-                chats.update(
-                    toolMessage.copy(
-                        content = result.content.take(MAX_TOOL_RESULT_CHARS),
-                        status = if (result.isError) MessageStatus.ERROR else MessageStatus.DONE,
-                        error = if (result.isError) result.content else null,
-                    ),
-                )
-                result.imageUri?.let { uri ->
-                    chats.addAttachment(
-                        AttachmentEntity(
-                            id = java.util.UUID.randomUUID().toString(),
-                            messageId = toolMessage.id,
-                            chatId = chatId,
-                            uri = uri,
-                            name = uri.substringAfterLast('/'),
-                            mimeType = "image/jpeg",
-                            sizeBytes = 0,
-                            kind = "image",
-                            createdAt = System.currentTimeMillis(),
+                runCatching {
+                    chats.update(
+                        toolMessage.copy(
+                            content = result.content.take(MAX_TOOL_RESULT_CHARS),
+                            status = if (result.isError) MessageStatus.ERROR else MessageStatus.DONE,
+                            error = if (result.isError) result.content else null,
                         ),
                     )
+                }.onFailure { send(AgentEvent.ToolFinished(call.function.name, false)) }
+                
+                result.imageUri?.let { uri ->
+                    runCatching {
+                        chats.addAttachment(
+                            AttachmentEntity(
+                                id = java.util.UUID.randomUUID().toString(),
+                                messageId = toolMessage.id,
+                                chatId = chatId,
+                                uri = uri,
+                                name = uri.substringAfterLast('/'),
+                                mimeType = "image/jpeg",
+                                sizeBytes = 0,
+                                kind = "image",
+                                createdAt = System.currentTimeMillis(),
+                            ),
+                        )
+                    }.onFailure { /* ignore attachment errors */ }
                 }
                 send(AgentEvent.ToolFinished(call.function.name, !result.isError))
             }
